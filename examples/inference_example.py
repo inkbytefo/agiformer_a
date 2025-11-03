@@ -46,7 +46,7 @@ def main():
         dropout=0.1,
         use_memory=True,
         use_multimodal=False  # Text-only for this example
-    ).to(device)
+    )
     
     # Load the best model from our training run
     model_path = Path(__file__).parent.parent / "checkpoints" / "best_model.pt"
@@ -57,6 +57,7 @@ def main():
     else:
         print(f"⚠️  Could not find the trained model at {model_path}. Using random weights.")
     
+    model.to(device).half()
     model.eval()
     
     # Example 1: Forward pass
@@ -68,8 +69,11 @@ def main():
     input_ids = text_to_ids(input_text)
     input_ids = input_ids.to(device)
     
+    # Get embeddings and convert to half precision
+    input_embeds = model.embedding(input_ids).half()
+
     with torch.no_grad():
-        logits, info = model(text=input_ids)
+        logits, info = model(inputs_embeds=input_embeds)
     
     print(f"Input: {input_text}")
     print(f"Output shape: {logits.shape}")
