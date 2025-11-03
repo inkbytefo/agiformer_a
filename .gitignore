@@ -50,7 +50,10 @@ wandb/
 data/
 *.csv
 *.json
+
+# Text files (except requirements.txt)
 *.txt
+!requirements.txt
 
 # OS
 .DS_Store
