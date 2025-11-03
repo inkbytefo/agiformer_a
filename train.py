@@ -529,9 +529,56 @@ def create_dataset(data_dir: Optional[str], data_path: Optional[str], model_conf
 
 
 def main():
-    # Parse arguments
-    args = parse_arguments()
+    # DEĞİŞİKLİK: parse_known_args() kullanarak bilinmeyen argümanları yakala
+    parser = argparse.ArgumentParser(description="Professional Training Script for AGIFORMER")
     
+    # Configuration
+    parser.add_argument("--config", type=str, default="configs/base_config.yaml",
+                       help="Path to configuration file")
+    parser.add_argument("--experiment_name", type=str, default="agiformer_experiment",
+                       help="Name of the experiment")
+    parser.add_argument("--wandb_project", type=str, default="agiformer",
+                       help="W&B project name")
+    
+    # Training parameters
+    parser.add_argument("--epochs", type=int, default=None,
+                       help="Number of training epochs (overrides config)")
+    parser.add_argument("--batch_size", type=int, default=None,
+                       help="Batch size (overrides config)")
+    parser.add_argument("--learning_rate", type=float, default=None,
+                       help="Learning rate (overrides config)")
+    
+    # Checkpointing
+    parser.add_argument("--resume", type=str, default=None,
+                       help="Path to checkpoint to resume from")
+    parser.add_argument("--checkpoint_interval", type=int, default=1000,
+                       help="Save checkpoint every N steps")
+    parser.add_argument("--eval_interval", type=int, default=500,
+                       help="Evaluate every N steps")
+    
+    # Data
+    parser.add_argument("--train_split", type=float, default=0.9,
+                       help="Training data split ratio")
+    parser.add_argument("--data_path", type=str, default=None,
+                       help="Path to training data file")
+    parser.add_argument("--data_dir", type=str, default=None,
+                       help="Path to CC12M dataset directory")
+    parser.add_argument("--output_dir", type=str, default="checkpoints",
+                       help="Output directory for checkpoints")
+    
+    # Other
+    parser.add_argument("--no_wandb", action="store_true",
+                       help="Disable W&B logging")
+    parser.add_argument("--debug", action="store_true",
+                       help="Enable debug mode")
+    parser.add_argument("--use_wandb", action="store_true",
+                       help="Enable W&B logging")
+    
+    # Komut satırı argümanlarını iki aşamada parse et:
+    # 1. Bilinen argümanları al
+    # 2. Geri kalanları (dinamik olanları) ayrıca al
+    args, unknown_args = parser.parse_known_args()
+
     # Load config
     config_path = Path(args.config)
     if not config_path.exists():
@@ -539,6 +586,43 @@ def main():
     
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
+    
+    # Dinamik argümanları (unknown_args) parse et ve config'i güncelle
+    # Örn: --model.n_experts 1 -> config['model']['n_experts'] = 1
+    for i in range(0, len(unknown_args), 2):
+        if i + 1 >= len(unknown_args):
+            continue
+            
+        arg_name = unknown_args[i]
+        arg_value = unknown_args[i+1]
+        
+        if not arg_name.startswith('--'):
+            continue
+        
+        # Değeri doğru tipe dönüştürmeye çalış (int, float, bool, str)
+        try:
+            if '.' in arg_value:
+                arg_value = float(arg_value)
+            else:
+                arg_value = int(arg_value)
+        except ValueError:
+            if arg_value.lower() == 'true':
+                arg_value = True
+            elif arg_value.lower() == 'false':
+                arg_value = False
+            # Aksi halde string olarak kalır
+        
+        # '.' ile ayrılmış anahtarları takip ederek config sözlüğünü güncelle
+        # Örn: "model.n_experts" -> keys = ["model", "n_experts"]
+        keys = arg_name.strip('-').split('.')
+        d = config
+        for key in keys[:-1]:
+            if key not in d:
+                d[key] = {}
+            d = d[key]
+        d[keys[-1]] = arg_value
+
+    print("Updated config with command-line arguments:", json.dumps(config, indent=2))
     
     model_config = config['model']
     train_config = config['training']
