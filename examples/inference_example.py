@@ -69,11 +69,8 @@ def main():
     input_ids = text_to_ids(input_text)
     input_ids = input_ids.to(device)
     
-    # Get embeddings and convert to half precision
-    input_embeds = model.embedding(input_ids).half()
-
-    with torch.no_grad():
-        logits, info = model(inputs_embeds=input_embeds)
+    with torch.no_grad(), torch.cuda.amp.autocast():
+        logits, info = model(text=input_ids)
     
     print(f"Input: {input_text}")
     print(f"Output shape: {logits.shape}")
