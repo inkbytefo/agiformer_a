@@ -38,7 +38,7 @@ class TextEncoder(nn.Module):
 
 class ImageEncoder(nn.Module):
     """
-    Image encoder using a pre-trained CLIPVisionModel.
+    Image encoder using a pre-trained CLIPVisionModel with lazy loading.
     This acts as the "eye" of AGIFORMER, leveraging a powerful, ready-made vision system.
     """
     
@@ -50,22 +50,36 @@ class ImageEncoder(nn.Module):
         """
         super().__init__()
         
-        # 1. Önceden eğitilmiş CLIP modelini ve görüntü işlemcisini yükle.
-        #    Bu, internetten indirileceği için ilk çalıştırmada biraz zaman alabilir.
-        print(f"Loading pre-trained vision model: {model_name}")
-        self.vision_model = CLIPVisionModel.from_pretrained(model_name)
-        self.processor = CLIPImageProcessor.from_pretrained(model_name)
+        # Lazy loading - model sadece ilk forward call'da yüklenir
+        self.d_model = d_model
+        self.model_name = model_name
+        self.vision_model = None
+        self.processor = None
+        self.projection = None
+        self._model_loaded = False
         
-        # 2. CLIP modelinin parametrelerini dondur (isteğe bağlı ama önerilir).
-        #    Bu, eğitim sırasında devasa görüntü modelini yeniden eğitmemizi engeller,
-        #    böylece kaynaklarımızı AGIFORMER'ın orkestrasyon yeteneklerini öğrenmesine odaklarız.
+    def _load_model(self):
+        """CLIP modelini lazy loading ile yükle"""
+        if self._model_loaded:
+            return
+            
+        print(f"🔄 Loading pre-trained vision model: {self.model_name}")
+        print("⚠️  This may take 1-2 minutes on first run...")
+        
+        # Modeli yükle
+        self.vision_model = CLIPVisionModel.from_pretrained(self.model_name)
+        self.processor = CLIPImageProcessor.from_pretrained(self.model_name)
+        
+        # Parametreleri dondur
         for param in self.vision_model.parameters():
             param.requires_grad = False
         
-        # 3. Projeksiyon katmanı. CLIP'in çıktı boyutunu (örn: 768) AGIFORMER'ın
-        #    kendi iç boyutuna (d_model) dönüştürür. Bu, iki sistem arasında bir adaptör görevi görür.
+        # Projeksiyon katmanı
         clip_output_dim = self.vision_model.config.hidden_size
-        self.projection = nn.Linear(clip_output_dim, d_model)
+        self.projection = nn.Linear(clip_output_dim, self.d_model)
+        
+        self._model_loaded = True
+        print("✅ Vision model loaded successfully!")
         
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         """
@@ -78,6 +92,9 @@ class ImageEncoder(nn.Module):
         Returns:
             torch.Tensor: Image embeddings of shape [batch_size, num_patches, d_model].
         """
+        # Lazy loading - modeli sadece ilk çağrıda yükle
+        self._load_model()
+        
         # Görüntüleri CLIP modelinin anlayacağı formata getir.
         # Bu işlem normalizasyon, yeniden boyutlandırma gibi adımları içerir.
         inputs = self.processor(images=images, return_tensors="pt").to(images.device)

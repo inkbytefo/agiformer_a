@@ -1,37 +1,37 @@
-# AGIFORMER Base Configuration
+# AGIFORMER Base Configuration - T4 GPU Optimized
 
 # Model Architecture
 model:
   vocab_size: 256  # Character vocabulary
-  d_model: 768
-  n_layers: 12
-  n_heads: 12
-  d_ff: 3072
+  d_model: 512  # Reduced from 768 for T4
+  n_layers: 8   # Reduced from 12 for T4
+  n_heads: 8    # Reduced from 12 for T4
+  d_ff: 2048    # Reduced from 3072 for T4
   
-  # Mixture of Experts
-  n_experts: 4  # Activated for Düşünür phase
-  expert_types: ["language", "logic", "spatial", "causal"]
+  # Mixture of Experts - Optimized for T4
+  n_experts: 2  # Reduced from 4 for T4
+  expert_types: ["language", "logic"]  # Only essential experts
   
-  # Memory System
-  memory_size: 10000
-  max_seq_len: 2048
+  # Memory System - Optimized for T4
+  memory_size: 1000  # Reduced from 10000 for T4
+  max_seq_len: 512   # Reduced from 2048 for T4
   
-  # Features
+  # Features - Selective activation
   use_linear_attention: false
   use_memory: true  # Activated for Düşünür phase
   use_introspection: true  # Activated for Gözlemci phase
-  use_multimodal: true  # Enabled for Phase 4.2 - First Real Training
+  use_multimodal: false  # DISABLED for T4 - enables fast training
   
   # Dropout
   dropout: 0.1
 
-# Training Configuration
+# Training Configuration - T4 Optimized
 training:
-  batch_size: 32
+  batch_size: 8   # Reduced from 32 for T4
   learning_rate: 0.0001  # 1e-4 as float
-  warmup_steps: 4000
-  max_steps: 100000
-  gradient_accumulation_steps: 1
+  warmup_steps: 1000  # Reduced from 4000
+  max_steps: 10000  # Reduced for testing
+  gradient_accumulation_steps: 4  # Increased to compensate smaller batch
   gradient_clip: 1.0
   
   # Optimizer
@@ -41,14 +41,17 @@ training:
   adam_epsilon: 0.00000001  # 1e-8 as float
   weight_decay: 0.01
   
-  # Mixed Precision
+  # Mixed Precision - Essential for T4
   use_amp: true
   amp_dtype: "float16"
   
+  # Gradient Checkpointing - Memory optimization
+  use_gradient_checkpointing: true
+  
   # Logging
-  log_interval: 100
-  save_interval: 1000
-  eval_interval: 500
+  log_interval: 50   # More frequent logging for debugging
+  save_interval: 500 # More frequent saves
+  eval_interval: 200 # More frequent evaluation
 
 # Data Configuration
 data:

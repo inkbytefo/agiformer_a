@@ -297,24 +297,38 @@ def validate_epoch(model, dataloader, criterion, device, use_amp=False, is_multi
 
 
 def train_epoch(model, dataloader, optimizer, criterion, device, use_amp=False, 
-                metrics_logger=None, step_offset=0, is_multimodal=False):
-    """Train for one epoch - refactor edilmiş ve standardize edilmiş"""
+                metrics_logger=None, step_offset=0, is_multimodal=False, use_gradient_checkpointing=False):
+    """Train for one epoch - T4 GPU optimized with gradient checkpointing"""
     model.train()
     total_loss = 0
     num_batches = 0
     
     scaler = torch.cuda.amp.GradScaler() if use_amp else None
     
+    # Enable gradient checkpointing if specified
+    if use_gradient_checkpointing:
+        model.gradient_checkpointing_enable()
+    
     for batch_idx, batch in enumerate(dataloader):
+        # Memory monitoring
+        if batch_idx % 50 == 0:
+            if torch.cuda.is_available():
+                memory_used = torch.cuda.memory_allocated() / 1024**3  # GB
+                memory_cached = torch.cuda.memory_reserved() / 1024**3  # GB
+                print(f"📊 GPU Memory: {memory_used:.2f}GB used, {memory_cached:.2f}GB cached")
+        
         # Batch verisini hazırla
         model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
         
         optimizer.zero_grad()
         
-        # Model çağrısı - standardize edilmiş
+        # Model çağrısı - T4 optimized
         if use_amp and scaler is not None:
             with torch.cuda.amp.autocast():
-                logits, info = model(**model_inputs)
+                if use_gradient_checkpointing:
+                    logits, info = model(**model_inputs, use_reentrant=False)
+                else:
+                    logits, info = model(**model_inputs)
                 
                 # Reshape for loss
                 logits = logits.view(-1, logits.size(-1))
@@ -323,10 +337,15 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp=False,
                 loss = criterion(logits, target_ids)
             
             scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             scaler.step(optimizer)
             scaler.update()
         else:
-            logits, info = model(**model_inputs)
+            if use_gradient_checkpointing:
+                logits, info = model(**model_inputs, use_reentrant=False)
+            else:
+                logits, info = model(**model_inputs)
             
             # Reshape for loss
             logits = logits.view(-1, logits.size(-1))
@@ -356,8 +375,8 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp=False,
         if metrics_logger and batch_idx % 10 == 0:  # Log every 10 batches
             metrics_logger.log_training_metrics(current_step, loss.item(), info)
         
-        if batch_idx % 100 == 0:
-            print(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
+        if batch_idx % 50 == 0:
+            print(f"🚀 Batch {batch_idx}, Loss: {loss.item():.4f}, Step: {current_step}")
     
     return total_loss / num_batches, current_step + 1
 
@@ -720,9 +739,10 @@ def main():
             print(f"\n📅 Epoch {epoch + 1}/{num_epochs}")
             
             # Training
+            use_gradient_checkpointing = train_config.get('use_gradient_checkpointing', False)
             avg_loss, end_step = train_epoch(
                 model, train_dataloader, optimizer, criterion, device, 
-                use_amp, metrics_logger, start_step, is_multimodal
+                use_amp, metrics_logger, start_step, is_multimodal, use_gradient_checkpointing
             )
             
             # Validation
