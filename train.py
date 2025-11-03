@@ -80,7 +80,7 @@ def validate_epoch(model, dataloader, criterion, device, use_amp, is_multimodal)
     with torch.no_grad():
         for batch in dataloader:
             model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
-            with torch.amp.autocast(device_type=device.type, enabled=use_amp):
+            with torch.amp.autocast(enabled=use_amp):
                 logits, _ = model(**model_inputs)
                 loss = criterion(logits.view(-1, logits.size(-1)), target_ids.view(-1))
             total_loss += loss.item()
@@ -88,11 +88,11 @@ def validate_epoch(model, dataloader, criterion, device, use_amp, is_multimodal)
 
 def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metrics_logger, step_offset, is_multimodal):
     model.train(); total_loss = 0
-    scaler = torch.amp.GradScaler(device_type=device.type, enabled=use_amp)
+    scaler = torch.amp.GradScaler(enabled=use_amp)
     for batch_idx, batch in enumerate(dataloader):
         model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
         
-        with torch.amp.autocast(device_type=device.type, enabled=use_amp):
+        with torch.amp.autocast(enabled=use_amp):
             logits, info = model(**model_inputs)
             loss = criterion(logits.view(-1, logits.size(-1)), target_ids.view(-1))
             total_loss_batch = loss
