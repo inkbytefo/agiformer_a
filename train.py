@@ -129,7 +129,7 @@ def create_dataset(data_dir, data_path, model_config, train_split):
     dummy_texts = ["Sample text for training."] * 8000
     dataset = SimpleTextDataset(dummy_texts, max_seq_len=model_config['max_seq_len'], vocab_size=model_config['vocab_size'])
     train_size = int(train_split * len(dataset)); val_size = len(dataset) - train_size
-    return random_split(dataset, [train_size, val_size]) + (False,)
+    return list(random_split(dataset, [train_size, val_size])) + [False]
 
 def main():
     if 'PYTORCH_CUDA_ALLOC_CONF' not in os.environ:
