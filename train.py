@@ -240,8 +240,26 @@ class SimpleTextDataset(Dataset):
         return input_ids, target_ids
 
 
+def prepare_batch_data(batch, device, is_multimodal):
+    """Batch verisini model için hazırla - tek yerden yönet"""
+    if is_multimodal:
+        # Multimodal batch (sözlük yapısı)
+        images = batch['image'].to(device)
+        input_ids = batch['input_ids'].to(device)
+        target_ids = batch['target_ids'].to(device)
+        model_inputs = {'text': input_ids, 'image': images}
+    else:
+        # Text-only batch (tuple yapısı)
+        input_ids, target_ids = batch
+        input_ids = input_ids.to(device)
+        target_ids = target_ids.to(device)
+        model_inputs = {'text': input_ids}
+    
+    return model_inputs, target_ids
+
+
 def validate_epoch(model, dataloader, criterion, device, use_amp=False, is_multimodal=False):
-    """Validate for one epoch"""
+    """Validate for one epoch - refactor edilmiş ve standardize edilmiş"""
     model.eval()
     total_loss = 0
     num_batches = 0
@@ -250,23 +268,13 @@ def validate_epoch(model, dataloader, criterion, device, use_amp=False, is_multi
     
     with torch.no_grad():
         for batch_idx, batch in enumerate(dataloader):
-            if is_multimodal:
-                # Multimodal batch
-                images = batch['image'].to(device)
-                input_ids = batch['input_ids'].to(device)
-                target_ids = batch['target_ids'].to(device)
-                
-                if use_amp and scaler is not None:
-                    with torch.cuda.amp.autocast():
-                        logits, info = model(text=input_ids, image=images)
-                        
-                        # Reshape for loss
-                        logits = logits.view(-1, logits.size(-1))
-                        target_ids = target_ids.view(-1)
-                        
-                        loss = criterion(logits, target_ids)
-                else:
-                    logits, info = model(text=input_ids, image=images)
+            # Batch verisini hazırla
+            model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
+            
+            # Model çağrısı - standardize edilmiş
+            if use_amp and scaler is not None:
+                with torch.cuda.amp.autocast():
+                    logits, info = model(**model_inputs)
                     
                     # Reshape for loss
                     logits = logits.view(-1, logits.size(-1))
@@ -274,28 +282,13 @@ def validate_epoch(model, dataloader, criterion, device, use_amp=False, is_multi
                     
                     loss = criterion(logits, target_ids)
             else:
-                # Text-only batch
-                input_ids, target_ids = batch
-                input_ids = input_ids.to(device)
-                target_ids = target_ids.to(device)
+                logits, info = model(**model_inputs)
                 
-                if use_amp and scaler is not None:
-                    with torch.cuda.amp.autocast():
-                        logits, info = model(text=input_ids)
-                        
-                        # Reshape for loss
-                        logits = logits.view(-1, logits.size(-1))
-                        target_ids = target_ids.view(-1)
-                        
-                        loss = criterion(logits, target_ids)
-                else:
-                    logits, info = model(text=input_ids)
-                    
-                    # Reshape for loss
-                    logits = logits.view(-1, logits.size(-1))
-                    target_ids = target_ids.view(-1)
-                    
-                    loss = criterion(logits, target_ids)
+                # Reshape for loss
+                logits = logits.view(-1, logits.size(-1))
+                target_ids = target_ids.view(-1)
+                
+                loss = criterion(logits, target_ids)
             
             total_loss += loss.item()
             num_batches += 1
@@ -305,7 +298,7 @@ def validate_epoch(model, dataloader, criterion, device, use_amp=False, is_multi
 
 def train_epoch(model, dataloader, optimizer, criterion, device, use_amp=False, 
                 metrics_logger=None, step_offset=0, is_multimodal=False):
-    """Train for one epoch with enhanced logging"""
+    """Train for one epoch - refactor edilmiş ve standardize edilmiş"""
     model.train()
     total_loss = 0
     num_batches = 0
@@ -313,92 +306,47 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp=False,
     scaler = torch.cuda.amp.GradScaler() if use_amp else None
     
     for batch_idx, batch in enumerate(dataloader):
-        if is_multimodal:
-            # Multimodal batch
-            images = batch['image'].to(device)
-            input_ids = batch['input_ids'].to(device)
-            target_ids = batch['target_ids'].to(device)
-            
-            optimizer.zero_grad()
-            
-            if use_amp and scaler is not None:
-                with torch.cuda.amp.autocast():
-                    logits, info = model(text=input_ids, image=images)
-                    
-                    # Reshape for loss
-                    logits = logits.view(-1, logits.size(-1))
-                    target_ids = target_ids.view(-1)
-                    
-                    loss = criterion(logits, target_ids)
-                
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-            else:
-                logits, info = model(text=input_ids, image=images)
+        # Batch verisini hazırla
+        model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
+        
+        optimizer.zero_grad()
+        
+        # Model çağrısı - standardize edilmiş
+        if use_amp and scaler is not None:
+            with torch.cuda.amp.autocast():
+                logits, info = model(**model_inputs)
                 
                 # Reshape for loss
                 logits = logits.view(-1, logits.size(-1))
                 target_ids = target_ids.view(-1)
                 
                 loss = criterion(logits, target_ids)
-                
-                # Add MoE load balancing loss
-                total_loss_batch = loss
-                for block_info in info.get('blocks', []):
-                    if 'moe' in block_info and 'load_balancing_loss' in block_info['moe']['router_info']:
-                        lb_loss = block_info['moe']['router_info']['load_balancing_loss']
-                        total_loss_batch = total_loss_batch + lb_loss
-                
-                total_loss_batch.backward()
-                
-                # Gradient clipping
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                
-                optimizer.step()
+            
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
         else:
-            # Text-only batch
-            input_ids, target_ids = batch
-            input_ids = input_ids.to(device)
-            target_ids = target_ids.to(device)
+            logits, info = model(**model_inputs)
             
-            optimizer.zero_grad()
+            # Reshape for loss
+            logits = logits.view(-1, logits.size(-1))
+            target_ids = target_ids.view(-1)
             
-            if use_amp and scaler is not None:
-                with torch.cuda.amp.autocast():
-                    logits, info = model(text=input_ids)
-                    
-                    # Reshape for loss
-                    logits = logits.view(-1, logits.size(-1))
-                    target_ids = target_ids.view(-1)
-                    
-                    loss = criterion(logits, target_ids)
-                
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-            else:
-                logits, info = model(text=input_ids)
-                
-                # Reshape for loss
-                logits = logits.view(-1, logits.size(-1))
-                target_ids = target_ids.view(-1)
-                
-                loss = criterion(logits, target_ids)
-                
-                # Add MoE load balancing loss
-                total_loss_batch = loss
-                for block_info in info.get('blocks', []):
-                    if 'moe' in block_info and 'load_balancing_loss' in block_info['moe']['router_info']:
-                        lb_loss = block_info['moe']['router_info']['load_balancing_loss']
-                        total_loss_batch = total_loss_batch + lb_loss
-                
-                total_loss_batch.backward()
-                
-                # Gradient clipping
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                
-                optimizer.step()
+            loss = criterion(logits, target_ids)
+            
+            # Add MoE load balancing loss
+            total_loss_batch = loss
+            for block_info in info.get('blocks', []):
+                if 'moe' in block_info and 'load_balancing_loss' in block_info['moe']['router_info']:
+                    lb_loss = block_info['moe']['router_info']['load_balancing_loss']
+                    total_loss_batch = total_loss_batch + lb_loss
+            
+            total_loss_batch.backward()
+            
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
+            optimizer.step()
         
         total_loss += loss.item()
         num_batches += 1
@@ -745,11 +693,31 @@ def main():
     use_amp = train_config.get('use_amp', False)
     best_val_loss = float('inf')
     
-    print(f"\nStarting training for {num_epochs} epochs...")
+    print(f"\n🔥 AGIFORMER Training Started!")
+    print(f"📊 Dataset type: {'Multimodal' if is_multimodal else 'Text-only'}")
+    print(f"🚀 Device: {device}")
+    print(f"📦 Batch size: {train_config['batch_size']}")
+    print(f"🧠 Learning rate: {train_config['learning_rate']}")
+    print(f"⚡ Mixed precision: {'Enabled' if use_amp else 'Disabled'}")
+    
+    # Debug: Test first batch
+    print(f"🔍 Testing first batch...")
+    try:
+        first_batch = next(iter(train_dataloader))
+        if is_multimodal:
+            print(f"   First batch shapes: input_ids={first_batch['input_ids'].shape}, images={first_batch['image'].shape}")
+        else:
+            print(f"   First batch shapes: input_ids={first_batch[0].shape}, targets={first_batch[1].shape}")
+        print("✅ First batch test successful!")
+    except Exception as e:
+        print(f"❌ First batch test failed: {e}")
+        raise
+    
+    print(f"\n🎯 Starting training for {num_epochs} epochs...")
     
     try:
         for epoch in range(num_epochs):
-            print(f"\nEpoch {epoch + 1}/{num_epochs}")
+            print(f"\n📅 Epoch {epoch + 1}/{num_epochs}")
             
             # Training
             avg_loss, end_step = train_epoch(
