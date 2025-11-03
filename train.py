@@ -488,9 +488,15 @@ def create_dataset(data_dir: Optional[str], data_path: Optional[str], model_conf
 
 
 def main():
+    # Memory optimization: Set CUDA memory configuration early
+    import os
+    if 'PYTORCH_CUDA_ALLOC_CONF' not in os.environ:
+        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+        print("🔧 Set PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True for better memory management")
+
     # DEĞİŞİKLİK: parse_known_args() kullanarak bilinmeyen argümanları yakala
     parser = argparse.ArgumentParser(description="Professional Training Script for AGIFORMER")
-    
+
     # Configuration
     parser.add_argument("--config", type=str, default="configs/base_config.yaml",
                        help="Path to configuration file")
@@ -498,7 +504,7 @@ def main():
                        help="Name of the experiment")
     parser.add_argument("--wandb_project", type=str, default="agiformer",
                        help="W&B project name")
-    
+
     # Training parameters
     parser.add_argument("--epochs", type=int, default=None,
                        help="Number of training epochs (overrides config)")
@@ -506,7 +512,7 @@ def main():
                        help="Batch size (overrides config)")
     parser.add_argument("--learning_rate", type=float, default=None,
                        help="Learning rate (overrides config)")
-    
+
     # Checkpointing
     parser.add_argument("--resume", type=str, default=None,
                        help="Path to checkpoint to resume from")
@@ -514,7 +520,7 @@ def main():
                        help="Save checkpoint every N steps")
     parser.add_argument("--eval_interval", type=int, default=500,
                        help="Evaluate every N steps")
-    
+
     # Data
     parser.add_argument("--train_split", type=float, default=0.9,
                        help="Training data split ratio")
@@ -524,7 +530,7 @@ def main():
                        help="Path to CC12M dataset directory")
     parser.add_argument("--output_dir", type=str, default="checkpoints",
                        help="Output directory for checkpoints")
-    
+
     # Other
     parser.add_argument("--no_wandb", action="store_true",
                        help="Disable W&B logging")
@@ -532,7 +538,7 @@ def main():
                        help="Enable debug mode")
     parser.add_argument("--use_wandb", action="store_true",
                        help="Enable W&B logging")
-    
+
     # Komut satırı argümanlarını iki aşamada parse et:
     # 1. Bilinen argümanları al
     # 2. Geri kalanları (dinamik olanları) ayrıca al
@@ -548,38 +554,50 @@ def main():
     
     # Dinamik argümanları (unknown_args) parse et ve config'i güncelle
     # Örn: --model.n_experts 1 -> config['model']['n_experts'] = 1
-    for i in range(0, len(unknown_args), 2):
+    i = 0
+    while i < len(unknown_args):
+        arg = unknown_args[i]
+
+        if not arg.startswith('--'):
+            i += 1
+            continue
+
+        # Argüman adını al
+        arg_name = arg.strip('--')
+
+        # Sonraki argümanı değer olarak al
         if i + 1 >= len(unknown_args):
-            continue
-            
-        arg_name = unknown_args[i]
-        arg_value = unknown_args[i+1]
-        
-        if not arg_name.startswith('--'):
-            continue
-        
+            print(f"Warning: No value provided for argument {arg}")
+            break
+
+        arg_value_str = unknown_args[i + 1]
+
         # Değeri doğru tipe dönüştürmeye çalış (int, float, bool, str)
         try:
-            if '.' in arg_value:
-                arg_value = float(arg_value)
+            # Try int first
+            if '.' not in arg_value_str:
+                arg_value = int(arg_value_str)
             else:
-                arg_value = int(arg_value)
+                arg_value = float(arg_value_str)
         except ValueError:
-            if arg_value.lower() == 'true':
-                arg_value = True
-            elif arg_value.lower() == 'false':
-                arg_value = False
-            # Aksi halde string olarak kalır
-        
+            # Try boolean
+            if arg_value_str.lower() in ['true', 'false']:
+                arg_value = arg_value_str.lower() == 'true'
+            else:
+                # Keep as string
+                arg_value = arg_value_str
+
         # '.' ile ayrılmış anahtarları takip ederek config sözlüğünü güncelle
         # Örn: "model.n_experts" -> keys = ["model", "n_experts"]
-        keys = arg_name.strip('-').split('.')
+        keys = arg_name.split('.')
         d = config
         for key in keys[:-1]:
-            if key not in d:
+            if key not in d or not isinstance(d[key], dict):
                 d[key] = {}
             d = d[key]
         d[keys[-1]] = arg_value
+
+        i += 2
 
     print("Updated config with command-line arguments:", json.dumps(config, indent=2))
     

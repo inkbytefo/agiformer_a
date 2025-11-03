@@ -68,25 +68,42 @@ class LogicExpert(nn.Module):
         x = self.norm1(x)
         attn_out = self.attention(x, x, x, mask)
         x = residual + self.dropout(attn_out)
-        
-        # Relational reasoning
-        batch_size, seq_len = x.size(0), x.size(1)
-        # Create pair-wise combinations
-        x_expanded1 = x.unsqueeze(2).expand(-1, -1, seq_len, -1)  # [batch, seq, seq, d_model]
-        x_expanded2 = x.unsqueeze(1).expand(-1, seq_len, -1, -1)  # [batch, seq, seq, d_model]
-        pairs = torch.cat([x_expanded1, x_expanded2], dim=-1)  # [batch, seq, seq, 2*d_model]
-        
-        # Apply relation net and aggregate
-        relations = self.relation_net(pairs)  # [batch, seq, seq, d_model]
-        relations = relations.mean(dim=2)  # [batch, seq, d_model] - aggregate over pairs
-        
+
+        # Memory-efficient relational reasoning
+        batch_size, seq_len, d_model = x.size()
+
+        # Use chunked processing to avoid O(seq_len²) memory
+        chunk_size = min(64, seq_len)  # Process in chunks of 64 tokens max
+        relations_list = []
+
+        for i in range(0, seq_len, chunk_size):
+            end_i = min(i + chunk_size, seq_len)
+            x_chunk = x[:, i:end_i]  # [batch, chunk_size, d_model]
+
+            # Create relations only within this chunk to reduce memory
+            chunk_pairs_1 = x_chunk.unsqueeze(2)  # [batch, chunk_size, 1, d_model]
+            chunk_pairs_2 = x_chunk.unsqueeze(1)  # [batch, 1, chunk_size, d_model]
+
+            # Concatenate pairs within chunk
+            pairs = torch.cat([chunk_pairs_1.expand(-1, -1, end_i-i, -1),
+                              chunk_pairs_2.expand(-1, end_i-i, -1, -1)], dim=-1)
+            # [batch, chunk_size, chunk_size, 2*d_model]
+
+            # Apply relation network
+            chunk_relations = self.relation_net(pairs)  # [batch, chunk_size, chunk_size, d_model]
+            chunk_relations = chunk_relations.mean(dim=2)  # [batch, chunk_size, d_model]
+
+            relations_list.append(chunk_relations)
+
+        # Concatenate all chunk relations
+        relations = torch.cat(relations_list, dim=1)  # [batch, seq_len, d_model]
+
         x = x + relations
-        
+
         # Logic encoder
         residual = x
         x = self.norm2(x)
         logic_out = self.logic_encoder(x)
         x = residual + logic_out
-        
-        return x
 
+        return x
