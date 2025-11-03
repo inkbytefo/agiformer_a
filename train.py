@@ -305,9 +305,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp=False,
     
     scaler = torch.cuda.amp.GradScaler() if use_amp else None
     
-    # Enable gradient checkpointing if specified
-    if use_gradient_checkpointing:
-        model.gradient_checkpointing_enable()
+    # Note: Gradient checkpointing is handled per-forward-pass, not globally on the model
     
     for batch_idx, batch in enumerate(dataloader):
         # Memory monitoring
@@ -325,10 +323,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp=False,
         # Model çağrısı - T4 optimized
         if use_amp and scaler is not None:
             with torch.cuda.amp.autocast():
-                if use_gradient_checkpointing:
-                    logits, info = model(**model_inputs, use_reentrant=False)
-                else:
-                    logits, info = model(**model_inputs)
+                logits, info = model(**model_inputs)
                 
                 # Reshape for loss
                 logits = logits.view(-1, logits.size(-1))
@@ -342,10 +337,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp=False,
             scaler.step(optimizer)
             scaler.update()
         else:
-            if use_gradient_checkpointing:
-                logits, info = model(**model_inputs, use_reentrant=False)
-            else:
-                logits, info = model(**model_inputs)
+            logits, info = model(**model_inputs)
             
             # Reshape for loss
             logits = logits.view(-1, logits.size(-1))
