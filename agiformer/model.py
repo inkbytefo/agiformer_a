@@ -170,6 +170,7 @@ class AGIFORMER(nn.Module):
                 d_model=d_model,
                 vocab_size=vocab_size,
                 n_cross_modal_layers=2,
+                n_heads=n_heads,
                 dropout=dropout
             )
         else:

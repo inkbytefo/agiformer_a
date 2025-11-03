@@ -202,6 +202,7 @@ class MultimodalPerceptionCore(nn.Module):
         d_model: int = 768,
         vocab_size: int = 256,
         n_cross_modal_layers: int = 2,
+        n_heads: int = 12,
         dropout: float = 0.1
     ):
         super().__init__()
@@ -215,7 +216,7 @@ class MultimodalPerceptionCore(nn.Module):
         
         # Cross-modal attention layers for fusion
         self.cross_modal_layers = nn.ModuleList([
-            CrossModalAttention(d_model, n_heads=12, dropout=dropout)
+            CrossModalAttention(d_model, n_heads=n_heads, dropout=dropout)
             for _ in range(n_cross_modal_layers)
         ])
         
