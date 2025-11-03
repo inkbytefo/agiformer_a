@@ -102,7 +102,7 @@ class LanguageExpert(nn.Module):
 
         # LLM'i dondurulmuş modda çalıştır
         with torch.no_grad():
-            llm_outputs = Language.llm_instance(
+            llm_outputs = LanguageExpert._llm_instance(
                 inputs_embeds=llm_input_embeds,
                 attention_mask=mask,
                 output_hidden_states=True
