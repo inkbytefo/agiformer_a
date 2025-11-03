@@ -1,0 +1,64 @@
+# AGIFORMER Base Configuration
+
+# Model Architecture
+model:
+  vocab_size: 256  # Character vocabulary
+  d_model: 768
+  n_layers: 12
+  n_heads: 12
+  d_ff: 3072
+  
+  # Mixture of Experts
+  n_experts: 4  # Activated for Düşünür phase
+  expert_types: ["language", "logic", "spatial", "causal"]
+  
+  # Memory System
+  memory_size: 10000
+  max_seq_len: 2048
+  
+  # Features
+  use_linear_attention: false
+  use_memory: true  # Activated for Düşünür phase
+  use_introspection: true  # Activated for Gözlemci phase
+  use_multimodal: true  # Enabled for Phase 4.2 - First Real Training
+  
+  # Dropout
+  dropout: 0.1
+
+# Training Configuration
+training:
+  batch_size: 32
+  learning_rate: 0.0001  # 1e-4 as float
+  warmup_steps: 4000
+  max_steps: 100000
+  gradient_accumulation_steps: 1
+  gradient_clip: 1.0
+  
+  # Optimizer
+  optimizer: "adamw"
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 0.00000001  # 1e-8 as float
+  weight_decay: 0.01
+  
+  # Mixed Precision
+  use_amp: true
+  amp_dtype: "float16"
+  
+  # Logging
+  log_interval: 100
+  save_interval: 1000
+  eval_interval: 500
+
+# Data Configuration
+data:
+  train_path: "data/train.txt"
+  val_path: "data/val.txt"
+  max_seq_length: 512
+  num_workers: 4
+
+# Hardware
+hardware:
+  device: "cuda"
+  distributed: false
+  num_gpus: 1

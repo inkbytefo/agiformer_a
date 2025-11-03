@@ -1,0 +1,64 @@
+# AGIFORMER Google Colab Optimized Configuration
+
+# Model Architecture
+model:
+  vocab_size: 256  # Character vocabulary
+  d_model: 512  # Reduced from 768 for Colab
+  n_layers: 8  # Reduced from 12 for Colab
+  n_heads: 8  # Reduced from 12 for Colab
+  d_ff: 2048  # Reduced from 3072 for Colab
+  
+  # Mixture of Experts
+  n_experts: 4  # Keep 4 experts for full functionality
+  expert_types: ["language", "logic", "spatial", "causal"]
+  
+  # Memory System
+  memory_size: 5000  # Reduced from 10000 for Colab
+  max_seq_len: 1024  # Reduced from 2048 for Colab
+  
+  # Features
+  use_linear_attention: false
+  use_memory: true  # Activated for Düşünür phase
+  use_introspection: true  # Activated for Gözlemci phase
+  use_multimodal: true  # Enabled for Phase 4.2 - First Real Training
+  
+  # Dropout
+  dropout: 0.1
+
+# Training Configuration - Colab Optimized
+training:
+  batch_size: 4  # Reduced from 32 for Colab memory constraints
+  learning_rate: 0.0001  # 1e-4 as float
+  warmup_steps: 1000  # Reduced from 4000 for faster training
+  max_steps: 50000  # Reduced from 100000 for Colab time limits
+  gradient_accumulation_steps: 2  # Accumulate gradients for effective batch size of 8
+  gradient_clip: 1.0
+  
+  # Optimizer
+  optimizer: "adamw"
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 0.00000001  # 1e-8 as float
+  weight_decay: 0.01
+  
+  # Mixed Precision
+  use_amp: true  # Essential for Colab
+  amp_dtype: "float16"
+  
+  # Logging - More frequent for Colab monitoring
+  log_interval: 50  # Reduced from 100
+  save_interval: 500  # Reduced from 1000 for Colab time limits
+  eval_interval: 250  # Reduced from 500
+
+# Data Configuration
+data:
+  train_path: "data/train.txt"
+  val_path: "data/val.txt"
+  max_seq_length: 512  # Reduced from 2048
+  num_workers: 2  # Reduced from 4 for Colab
+
+# Hardware - Colab Specific
+hardware:
+  device: "cuda"
+  distributed: false
+  num_gpus: 1
