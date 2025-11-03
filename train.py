@@ -1,14 +1,12 @@
-## Developer: inkbytefo
-## Modified: 2025-11-03
 """
 Professional Training Script for AGIFORMER
-*** UPDATED WITH ROBUST ARGUMENT PARSING AND GRADIENT CHECKPOINTING LOGIC ***
+*** UPDATED WITH TypeError FIX FOR GradScaler ***
 """
 
 import torch, torch.nn as nn, yaml, argparse, json, os, sys, logging
 from torch.utils.data import Dataset, DataLoader, random_split
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).parent))
 from agiformer import AGIFORMER
@@ -49,7 +47,6 @@ class MetricsLogger:
         else: self.logger = logging.getLogger(__name__); logging.basicConfig(level=logging.INFO)
     def log_training_metrics(self, step: int, loss: float, model_info: Dict[str, Any]):
         metrics = {'Training/loss': loss, 'Training/step': step}
-        # (metrik toplama mantığı aynı)
         if isinstance(self.logger, logging.Logger): self.logger.info(f"Step {step}: {metrics}")
         else: self.logger.log(metrics)
     def log_validation_metrics(self, step: int, val_loss: float, val_metrics: Dict[str, float]):
@@ -57,7 +54,7 @@ class MetricsLogger:
         if isinstance(self.logger, logging.Logger): self.logger.info(f"Validation Step {step}: {metrics}")
         else: self.logger.log(metrics)
     def finish(self):
-        if not isinstance(self.logger, logging.Logger): self.logger.finish()
+        if hasattr(self.logger, 'finish'): self.logger.finish()
 
 class SimpleTextDataset(Dataset):
     def __init__(self, texts, max_seq_len=512, vocab_size=256):
@@ -80,7 +77,8 @@ def validate_epoch(model, dataloader, criterion, device, use_amp, is_multimodal)
     with torch.no_grad():
         for batch in dataloader:
             model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
-            with torch.amp.autocast(enabled=use_amp):
+            # --- DEĞİŞİKLİK: 'device_type' burada gerekli ---
+            with torch.amp.autocast(device_type=device.type, enabled=use_amp):
                 logits, _ = model(**model_inputs)
                 loss = criterion(logits.view(-1, logits.size(-1)), target_ids.view(-1))
             total_loss += loss.item()
@@ -88,11 +86,14 @@ def validate_epoch(model, dataloader, criterion, device, use_amp, is_multimodal)
 
 def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metrics_logger, step_offset, is_multimodal):
     model.train(); total_loss = 0
+    # --- DEĞİŞİKLİK: 'device_type' argümanı kaldırıldı ---
     scaler = torch.amp.GradScaler(enabled=use_amp)
+
     for batch_idx, batch in enumerate(dataloader):
         model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
-        
-        with torch.amp.autocast(enabled=use_amp):
+
+        # --- DEĞİŞİKLİK: 'device_type' burada gerekli ---
+        with torch.amp.autocast(device_type=device.type, enabled=use_amp):
             logits, info = model(**model_inputs)
             loss = criterion(logits.view(-1, logits.size(-1)), target_ids.view(-1))
             total_loss_batch = loss
@@ -116,8 +117,8 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metric
 
     return total_loss / len(dataloader), current_step + 1
 
-def create_dataset(data_dir, data_path, model_config, train_split):
-    # (Bu fonksiyon aynı kalabilir)
+def create_dataset(data_dir, data_path, model_config, train_split) -> Tuple[Dataset, Dataset, bool]:
+    # (Bu fonksiyonun içeriği önceki düzeltmeyle aynı kalır)
     if data_dir and Path(data_dir).exists():
         train_metadata, val_metadata = Path(data_dir)/"metadata_train.json", Path(data_dir)/"metadata_val.json"
         if train_metadata.exists() and val_metadata.exists():
@@ -125,12 +126,20 @@ def create_dataset(data_dir, data_path, model_config, train_split):
             train_ds = CC12MDataset(data_dir, "train", max_text_len=model_config['max_seq_len'], vocab_size=model_config['vocab_size'])
             val_ds = CC12MDataset(data_dir, "val", max_text_len=model_config['max_seq_len'], vocab_size=model_config['vocab_size'])
             return train_ds, val_ds, True
+
     print("Using fallback text-only dataset")
-    dummy_texts = ["Sample text for training."] * 8000
+    dummy_texts = [
+        "This is a sample text for training.", "The quick brown fox jumps over the lazy dog.",
+        "Machine learning is fascinating.", "Deep learning models require large datasets.",
+        "Natural language processing is evolving rapidly.", "Transformers revolutionized AI research.",
+        "Attention mechanisms are powerful.", "AGIFORMER represents the future of AI."
+    ] * 1000
     dataset = SimpleTextDataset(dummy_texts, max_seq_len=model_config['max_seq_len'], vocab_size=model_config['vocab_size'])
     train_size = int(train_split * len(dataset)); val_size = len(dataset) - train_size
-    return list(random_split(dataset, [train_size, val_size])) + [False]
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    return train_dataset, val_dataset, False
 
+# (main fonksiyonunun geri kalanı aynı)
 def main():
     if 'PYTORCH_CUDA_ALLOC_CONF' not in os.environ:
         os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
@@ -157,16 +166,14 @@ def main():
     print("Updated config:", json.dumps(config, indent=2))
     model_config, train_config = config['model'], config['training']
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu'); print(f"Using device: {device}")
-    
+
     checkpoint_manager = CheckpointManager(checkpoint_dir="checkpoints")
     metrics_logger = MetricsLogger(project_name="agiformer", experiment_name=config.get('experiment_name', 'agiformer_run'), config=config)
-    
-    # --- DEĞİŞİKLİK: use_gradient_checkpointing'i model'e ilet ---
+
     model = AGIFORMER(
         use_gradient_checkpointing=train_config.get('use_gradient_checkpointing', False),
         **model_config
     ).to(device)
-    # --- BİTTİ ---
 
     params = count_parameters(model)
     print(f"\nModel Parameters: Total: {format_number(params['total'])}, Trainable: {format_number(params['trainable'])}")
@@ -181,23 +188,36 @@ def main():
 
     start_step, best_val_loss = 0, float('inf')
     print(f"\n🔥 Training Started! Batch size: {train_config['batch_size']}, LR: {train_config['learning_rate']}, AMP: {train_config['use_amp']}")
-    
-    for epoch in range(train_config.get('epochs', 10)):
-        print(f"\n📅 Epoch {epoch + 1}/{train_config.get('epochs', 10)}")
-        avg_loss, end_step = train_epoch(model, train_loader, optimizer, criterion, device, train_config['use_amp'], metrics_logger, start_step, is_multimodal)
-        val_loss = validate_epoch(model, val_loader, criterion, device, train_config['use_amp'], is_multimodal)
-        scheduler.step()
-        if metrics_logger: metrics_logger.log_validation_metrics(end_step, val_loss, {})
-        
-        is_best = val_loss < best_val_loss
-        if is_best: best_val_loss = val_loss
-        checkpoint_manager.save_checkpoint(end_step, model, optimizer, scheduler, {'val_loss': val_loss}, is_best)
-        
-        print(f"Epoch {epoch + 1} completed: Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
-        start_step = end_step
 
-    if metrics_logger: metrics_logger.finish()
-    print(f"\nTraining completed! Best validation loss: {best_val_loss:.4f}")
+    epochs = train_config.get('epochs', 10)
+    max_steps = train_config.get('max_steps')
+    global_step = 0
+
+    try:
+        for epoch in range(epochs):
+            if max_steps and global_step >= max_steps:
+                print(f"Reached max_steps ({max_steps}). Stopping training.")
+                break
+
+            print(f"\n📅 Epoch {epoch + 1}/{epochs}")
+            avg_loss, end_step = train_epoch(model, train_loader, optimizer, criterion, device, train_config['use_amp'], metrics_logger, global_step, is_multimodal)
+            global_step = end_step
+
+            val_loss = validate_epoch(model, val_loader, criterion, device, train_config['use_amp'], is_multimodal)
+            scheduler.step()
+            if metrics_logger: metrics_logger.log_validation_metrics(end_step, val_loss, {})
+
+            is_best = val_loss < best_val_loss
+            if is_best: best_val_loss = val_loss
+            checkpoint_manager.save_checkpoint(end_step, model, optimizer, scheduler, {'val_loss': val_loss}, is_best)
+
+            print(f"Epoch {epoch + 1} completed: Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
+
+    except KeyboardInterrupt:
+        print("\nTraining interrupted by user.")
+    finally:
+        if metrics_logger: metrics_logger.finish()
+        print(f"\nTraining completed! Best validation loss: {best_val_loss:.4f}")
 
 if __name__ == "__main__":
     main()
