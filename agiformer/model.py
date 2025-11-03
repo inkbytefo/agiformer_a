@@ -285,6 +285,11 @@ class AGIFORMER(nn.Module):
             )
             model_info['memory'] = memory_info
         
+        # Create attention mask if not provided
+        if mask is None and text is not None:
+            seq_len = text.size(1)
+            mask = torch.tril(torch.ones(seq_len, seq_len, device=x.device)).unsqueeze(0).unsqueeze(1)
+
         # AGIFORMER blocks
         all_block_info = []
         previous_states = None
