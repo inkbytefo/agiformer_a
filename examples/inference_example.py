@@ -48,13 +48,14 @@ def main():
         use_multimodal=False  # Text-only for this example
     ).to(device)
     
-    # Load model weights (if available)
-    model_path = Path(__file__).parent.parent / "checkpoints" / "agiformer_model.pt"
+    # Load the best model from our training run
+    model_path = Path(__file__).parent.parent / "checkpoints" / "best_model.pt"
     if model_path.exists():
-        print(f"Loading model from {model_path}")
-        model.load_state_dict(torch.load(model_path, map_location=device))
+        print(f"✅ Loading our best trained model from: {model_path}")
+        checkpoint = torch.load(model_path, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
     else:
-        print("No pre-trained model found. Using randomly initialized weights.")
+        print(f"⚠️  Could not find the trained model at {model_path}. Using random weights.")
     
     model.eval()
     
