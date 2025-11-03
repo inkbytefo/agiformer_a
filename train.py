@@ -99,7 +99,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metric
             total_loss_batch = loss
             for block_info in info.get('blocks', []):
                 if 'moe' in block_info and 'load_balancing_loss' in block_info['moe']['router_info']:
-                    total_loss_batch += block_info['moe']['router_info']['load_balancing_loss']
+                    total_loss_batch += block_info['moe']['router_info']['load_balancing_loss'].detach()
 
         optimizer.zero_grad()
         scaler.scale(total_loss_batch).backward()
