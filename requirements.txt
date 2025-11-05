@@ -51,4 +51,4 @@ gensim>=4.3.0
 sentencepiece>=0.1.99
 
 # Turkish Morphological Analysis (Zemberek)
-zemberek-nlp>=0.17.1
+zemberek-python>=0.2.3
