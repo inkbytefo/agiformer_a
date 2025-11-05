@@ -36,12 +36,16 @@ omegaconf>=2.3.0
 
 # Graph Neural Networks for Knowledge Graph
 torch-geometric>=2.5.0
-pyg-lib>=0.4.0
-torch-scatter>=2.1.0
-torch-sparse>=0.6.18
-torch-cluster>=1.6.0
-torch-spline-conv>=1.2.1
+# Optional PyG performance libraries (platform-dependent, install manually if needed)
+# pyg-lib>=0.4.0
+# torch-scatter>=2.1.0
+# torch-sparse>=0.6.18
+# torch-cluster>=1.6.0
+# torch-spline-conv>=1.2.1
 
 # Natural Language Processing for Pseudo-Labeling
 spacy>=3.7.0
 gensim>=4.3.0
+
+# Tokenizer Training
+sentencepiece>=0.1.99
