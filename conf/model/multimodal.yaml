@@ -1,0 +1,11 @@
+# AGIFORMER Multimodal Model Configuration
+# Text + image/audio/video processing with memory and introspection
+
+defaults:
+  - base
+
+# Feature flags for multimodal variant
+use_memory: true
+use_introspection: true
+use_multimodal: true
+use_linear_attention: false

@@ -1,7 +1,5 @@
-# @package _group_
-
 # AGIFORMER Base Model Configuration
-# Default model settings for AGIFORMER
+# Common architectural settings shared across all model variants
 
 # Architecture
 vocab_size: 256
@@ -18,11 +16,11 @@ expert_types: ["language", "logic"]
 memory_size: 1000
 max_seq_len: 512
 
-# Features
-use_linear_attention: false
-use_memory: true
-use_introspection: true
-use_multimodal: false
-
 # Regularization
 dropout: 0.1
+
+# Feature flags - Override in variant configs
+use_linear_attention: false
+use_memory: false
+use_introspection: false
+use_multimodal: false

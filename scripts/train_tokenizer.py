@@ -26,7 +26,11 @@ except ImportError:
     sys.exit(1)
 
 # Morphological analysis
-from agiformer.language.morpho_splitter import MorphoSplitter
+try:
+    from agiformer.language.morpho_splitter import MorphoSplitter
+except ImportError:
+    print("Warning: MorphoSplitter not available, using basic functionality")
+    MorphoSplitter = None
 
 def download_mc4_turkish(output_file: str, max_size_gb: float = 0.75) -> bool:
     """

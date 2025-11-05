@@ -133,9 +133,11 @@ class ExpertRouter(nn.Module):
 ### Uzman Tipleri
 
 1. **Dil Uzmanı** ([`agiformer/experts/language_expert.py`](agiformer/experts/language_expert.py))
-   - Qwen3-0.6B LLM entegrasyonu
-   - Sözdizimsel ve anlamsal işleme
-   - Önceden eğitilmiş model dondurulmuş, sadece adaptör katmanları eğitiliyor
+   - **AgglutinativeAttention Mekanizması**: Türkçe'nin eklemeli yapısına özel olarak geliştirilmiş özgün attention mekanizması
+   - **Morfolojik Farkındalık**: Kelimelerin kök, ek ve morfolojik tiplerini (isim, fiil, sıfat vb.) ayrı ayrı işleme
+   - **Türkçe Odaklı Tasarım**: Eklemeli dillerin yapısal özelliklerini (çoklu ek kullanımı, harmoni kuralları) modelleyen özel katmanlar
+   - **Sözdizimsel ve Anlamsal İşleme**: MorphoPiece tokenizer ile entegre çalışarak derin morfolojik analiz
+   - **Öğrenilebilir Mimari**: Harici model bağımlılığı olmadan, AGIFORMER'ın kendi içinde geliştirilmiş uzman sistemi
 
 2. **Mantık Uzmanı** ([`agiformer/experts/logic_expert.py`](agiformer/experts/logic_expert.py))
    - İlişkisel akıl yürütme
@@ -361,23 +363,82 @@ Output Projection
 
 ### Eğitim Konfigürasyonu
 
-**Model Parametreleri** ([`configs/base_config.yaml`](configs/base_config.yaml)):
+AGIFORMER, Hydra konfigürasyon yönetim sistemi kullanarak esnek model varyantları sunar. Farklı kullanım senaryoları için optimize edilmiş konfigürasyonlar mevcuttur.
+
+#### Model Varyantları
+
+**1. text_only** - Sadece metin işleme:
+```bash
+python train.py model=text_only
+```
+- Memory sistemi aktif
+- Multimodal ve introspection devre dışı
+- Hafif ve hızlı eğitim
+
+**2. multimodal** - Çoklu modalite işleme:
+```bash
+python train.py model=multimodal
+```
+- Memory + multimodal perception + introspection
+- Görüntü, ses ve video desteği
+- Tam özellikli multimodal AI
+
+**3. full** - Tüm özellikler aktif:
+```bash
+python train.py model=full
+```
+- Tüm sistemler aktif (memory, multimodal, introspection, linear attention)
+- En kapsamlı model varyantı
+- Maksimum hesaplama gereksinimi
+
+**4. minimal** - Hafif model:
+```bash
+python train.py model=minimal
+```
+- Küçültülmüş mimari (d_model=256, n_layers=4)
+- Sadece temel özellikler
+- Kaynak kısıtlı ortamlarda kullanım
+
+**5. t4_optimized** - T4 GPU optimizasyonu:
+```bash
+python train.py model=t4_optimized
+```
+- T4 GPU'lar için optimize edilmiş
+- Seçici özellik kullanımı
+
+#### Temel Konfigürasyon Yapısı
+
+**Base Config** ([`conf/model/base.yaml`](conf/model/base.yaml)):
 ```yaml
-model:
-  vocab_size: 256
-  d_model: 768
-  n_layers: 12
-  n_heads: 12
-  d_ff: 3072
-  n_experts: 4
-  expert_types: ["language", "logic", "spatial", "causal"]
-  memory_size: 10000
-  max_seq_len: 2048
-  use_linear_attention: false
-  use_memory: true
-  use_introspection: true
-  use_multimodal: true
-  dropout: 0.1
+# Ortak mimari ayarları
+vocab_size: 256
+d_model: 512
+n_layers: 8
+n_heads: 8
+d_ff: 2048
+n_experts: 2
+expert_types: ["language", "logic"]
+memory_size: 1000
+max_seq_len: 512
+dropout: 0.1
+
+# Feature flags - Varyantlarda override edilir
+use_linear_attention: false
+use_memory: false
+use_introspection: false
+use_multimodal: false
+```
+
+**Variant Config Örneği** ([`conf/model/text_only.yaml`](conf/model/text_only.yaml)):
+```yaml
+defaults:
+  - base
+
+# Text-only varyantı için feature flags
+use_memory: true
+use_introspection: false
+use_multimodal: false
+use_linear_attention: false
 ```
 
 **Eğitim Parametreleri**:

@@ -1,0 +1,15 @@
+# AGIFORMER Baseline Language Model Configuration
+# Developer: inkbytefo
+# Modified: 2025-11-06
+
+defaults:
+  - base  # base.yaml'daki tüm ayarları miras al
+
+# Temel model için base.yaml'daki ayarları override et
+n_experts: 1
+expert_types: ["language"]
+
+# Bu test için diğer karmaşık özellikleri kapat
+use_memory: false
+use_introspection: false
+use_multimodal: false

@@ -97,7 +97,7 @@ print(f"Çıktı: {result}")
 ## 🧩 Bileşenler
 
 ### 1. Uzman Sistemi (MoE)
-- **Dil Uzmanı**: AgglutinativeAttention ile Türkçe morfolojik farkındalık
+- **Dil Uzmanı**: AgglutinativeAttention mekanizması ile Türkçe'nin eklemeli yapısına özel morfolojik farkındalık ve dil işleme
 - **Mantık Uzmanı**: İlişkisel akıl yürütme
 - **Mekansal Uzman**: Geometrik özellik çıkarma
 - **Nedensel Uzman**: Sebep-sonuç ilişkileri
@@ -280,7 +280,7 @@ agiformer/
 │   │   └── dataset.py            # TurkishTextDataset
 │   ├── experts/              # Uzman sistemleri
 │   │   ├── moe.py           # MoE yönlendirme
-│   │   ├── language_expert.py # Dil uzmanı (AgglutinativeAttention)
+│   │   ├── language_expert.py (AgglutinativeAttention) # Dil uzmanı
 │   │   ├── logic_expert.py   # Mantık uzmanı
 │   │   ├── spatial_expert.py # Mekansal uzman
 │   │   └── causal_expert.py  # Nedensel uzman

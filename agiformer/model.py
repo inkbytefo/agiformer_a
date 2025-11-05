@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from typing import Optional, Dict, Tuple, Union
 from torch.utils.checkpoint import checkpoint # <-- DEĞİŞİKLİK: Checkpoint'i import et
 
-from ..language.tokenizer import MorphoPiece
+from agiformer.language.tokenizer import MorphoPiece
 from .core.attention import MultiHeadAttention, LinearAttention
 from .core.base_components import FeedForward, LayerNorm, ResidualConnection
 from .core.memory_backbone import UnifiedMemoryBackbone

@@ -1,0 +1,21 @@
+# AGIFORMER Minimal Model Configuration
+# Lightweight model for resource-constrained environments
+
+defaults:
+  - base
+
+# Reduced architecture for minimal variant
+d_model: 256
+n_layers: 4
+n_heads: 4
+d_ff: 1024
+n_experts: 1
+expert_types: ["language"]
+memory_size: 500
+max_seq_len: 256
+
+# Feature flags for minimal variant (only essential features)
+use_memory: true
+use_introspection: false
+use_multimodal: false
+use_linear_attention: false

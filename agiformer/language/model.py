@@ -15,11 +15,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Tuple, List, Dict
 import math
+from dataclasses import dataclass
 
-from src.model import ModelConfig, FeedForward
-from src.agglutinative_attention import AgglutinativeAttention
-from src.grammar_engine import GrammarEngine
-from src.morpho_splitter import MorphoSplitter
+from agiformer.core.base_components import FeedForward
+from agiformer.language.attention import AgglutinativeAttention
+from agiformer.language.grammar_engine import GrammarEngine
+from agiformer.language.morpho_splitter import MorphoSplitter
+
+@dataclass
+class ModelConfig:
+    vocab_size: int = 32000
+    hidden_size: int = 768
+    num_layers: int = 12
+    num_heads: int = 12
+    ffn_size: int = 3072
+    max_seq_len: int = 512
+    dropout: float = 0.1
+    layer_norm_eps: float = 1e-5
+    pad_token_id: int = 0
 
 class TMA1TransformerLayer(nn.Module):
     """TMA-1 Transformer Layer (Morfem farkındalıklı)"""
@@ -416,4 +429,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

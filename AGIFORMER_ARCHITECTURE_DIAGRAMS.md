@@ -147,7 +147,7 @@ graph TB
     end
     
     subgraph "Experts"
-        E --> F[Language Expert<br/>Qwen3-0.6B]
+        E --> F[Language Expert<br/>AgglutinativeAttention]
         E --> G[Logic Expert<br/>Relational Reasoning]
         E --> H[Spatial Expert<br/>Geometric Features]
         E --> I[Causal Expert<br/>Temporal Relations]

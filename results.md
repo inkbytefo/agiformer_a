@@ -1,3 +1,6 @@
+# ⚠️ ARŞİV NOTU: Bu dosya artık güncel mimariyi yansıtmayabilir
+**Not:** Bu deney sonuçları, LanguageExpert'in harici Qwen-0.6B LLM modelini kullandığı eski mimariye dayanmaktadır. Güncel AGIFORMER v0.1 sürümü, özgün AgglutinativeAttention mekanizmasını kullanarak harici model bağımlılığını ortadan kaldırmıştır. Bellek optimizasyonları hala geçerli olsa da, uzman sistemi yapısı değişmiştir.
+
 # AGIFORMER Deney Sonuçları: T4 Optimizasyonu ve Bellek Sorunu Çözümü
 
 ## Deney: `AGIFORMER_T4_Opt_Kalp_Atisi_Fixed`

@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from typing import Optional, Tuple, List
-from src.morpho_splitter import MorphoSplitter
+from agiformer.language.morpho_splitter import MorphoSplitter
 
 class AgglutinativeAttention(nn.Module):
     """Türkçe eklemeli yapıya özel attention mekanizması"""
@@ -346,4 +346,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

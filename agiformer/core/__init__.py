@@ -10,7 +10,7 @@ from .attention import (
     CrossModalAttention
 )
 from .multimodal_perception import MultimodalPerceptionCore
-from .morfo_semantic_tokenizer import MorfoSemanticTokenizer
+
 from .memory_backbone import UnifiedMemoryBackbone
 
 __all__ = [
@@ -22,7 +22,5 @@ __all__ = [
     "SyntaxAwareAttention",
     "CrossModalAttention",
     "MultimodalPerceptionCore",
-    "MorfoSemanticTokenizer",
     "UnifiedMemoryBackbone",
 ]
-
