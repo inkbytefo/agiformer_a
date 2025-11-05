@@ -165,84 +165,108 @@ def merge_corpus_files(file1: str, file2: str, output_file: str) -> bool:
 def preprocess_with_morpho(
     input_file: str,
     output_file: str,
-    morpho_splitter: MorphoSplitter,
+    morpho_splitter,
     max_lines: int = None
 ) -> bool:
     """
     Corpus'u morfem ayrımı ile işle
     Kök ve ekleri ayrı token'lara ayır
-    
+
     Args:
         input_file: Input corpus dosyası
         output_file: İşlenmiş çıktı dosyası
-        morpho_splitter: Morfem ayrımı için splitter
+        morpho_splitter: Morfem ayrımı için splitter (None ise basit işleme)
         max_lines: İşlenecek maksimum satır sayısı (None = tümü)
-    
+
     Returns:
         Başarılı mı?
     """
-    print(f"📝 Preprocessing corpus with morphological analysis...")
-    print(f"   Input: {input_file}")
-    print(f"   Output: {output_file}")
-    print("")
-    
+    if morpho_splitter is None:
+        print(f"📝 Preprocessing corpus with basic tokenization (no morphological analysis)...")
+        print(f"   Input: {input_file}")
+        print(f"   Output: {output_file}")
+        print("")
+    else:
+        print(f"📝 Preprocessing corpus with morphological analysis...")
+        print(f"   Input: {input_file}")
+        print(f"   Output: {output_file}")
+        print("")
+
     if not os.path.exists(input_file):
         print(f"❌ Input file not found: {input_file}")
         return False
-    
+
     processed_count = 0
     error_count = 0
-    
+
     with open(input_file, 'r', encoding='utf-8') as f_in:
         with open(output_file, 'w', encoding='utf-8') as f_out:
             total_lines = sum(1 for _ in f_in)
             f_in.seek(0)
-            
+
             for line_num, line in enumerate(tqdm(f_in, total=total_lines, desc="Processing")):
                 if max_lines and line_num >= max_lines:
                     break
-                
+
                 line = line.strip()
                 if not line:
                     continue
-                
+
                 try:
-                    # Cümleyi morfemlere ayır
-                    analysis = morpho_splitter.split_sentence(line)
-                    
-                    # Her kelime için kök ve ekleri ayır
-                    morphemes = []
-                    for word_analysis in analysis["kelimeler"]:
-                        # Kök
-                        root = word_analysis["kök"]
-                        if root:
-                            morphemes.append(root)
-                        
-                        # Ekler (eksi işaretini kaldır)
-                        for suffix in word_analysis["ekler"]:
-                            suffix_clean = suffix.lstrip('-')
-                            if suffix_clean:
-                                morphemes.append(suffix_clean)
-                    
-                    # Morfemlerle yeni cümle oluştur (boşlukla ayrılmış)
-                    if morphemes:
-                        processed_line = ' '.join(morphemes)
-                        f_out.write(processed_line + '\n')
-                        processed_count += 1
-                
+                    if morpho_splitter is not None:
+                        # Morfem ayrımı ile işleme
+                        analysis = morpho_splitter.split_sentence(line)
+
+                        # Her kelime için kök ve ekleri ayır
+                        morphemes = []
+                        for word_analysis in analysis["kelimeler"]:
+                            # Kök
+                            root = word_analysis["kök"]
+                            if root:
+                                morphemes.append(root)
+
+                            # Ekler (eksi işaretini kaldır)
+                            for suffix in word_analysis["ekler"]:
+                                suffix_clean = suffix.lstrip('-')
+                                if suffix_clean:
+                                    morphemes.append(suffix_clean)
+
+                        # Morfemlerle yeni cümle oluştur (boşlukla ayrılmış)
+                        if morphemes:
+                            processed_line = ' '.join(morphemes)
+                            f_out.write(processed_line + '\n')
+                            processed_count += 1
+                    else:
+                        # Basit işleme: kelimeleri olduğu gibi bırak
+                        # Sadece temel normalizasyon yap
+                        words = line.split()
+                        if words:
+                            # Kelimeleri normalize et ve birleştir
+                            normalized_words = []
+                            for word in words:
+                                # Temel temizlik
+                                word = word.strip()
+                                if word:
+                                    normalized_words.append(word)
+
+                            if normalized_words:
+                                processed_line = ' '.join(normalized_words)
+                                f_out.write(processed_line + '\n')
+                                processed_count += 1
+
                 except Exception as e:
                     error_count += 1
                     if error_count % 1000 == 0:
                         print(f"⚠️  Errors: {error_count}")
                     continue
-    
+
     print(f"\n✅ Preprocessing completed!")
     print(f"   Processed: {processed_count:,} lines")
     print(f"   Errors: {error_count:,}")
-    
+
     output_size_gb = os.path.getsize(output_file) / (1024 * 1024 * 1024)
     print(f"   Output size: {output_size_gb:.2f} GB")
-    
+
     return True
 
 def train_morphopiece(
@@ -414,8 +438,22 @@ def main():
     print("    MorphoPiece Tokenizer Training")
     print("=" * 60)
     print("")
-    
-    morpho_splitter = MorphoSplitter()
+
+    # Initialize morphological splitter (may be None if import failed)
+    morpho_splitter = None
+    if MorphoSplitter is not None:
+        try:
+            morpho_splitter = MorphoSplitter()
+            print("✅ MorphoSplitter initialized successfully")
+        except Exception as e:
+            print(f"⚠️  Failed to initialize MorphoSplitter: {e}")
+            print("   Continuing with basic tokenization...")
+            morpho_splitter = None
+    else:
+        print("⚠️  MorphoSplitter not available, using basic tokenization")
+        morpho_splitter = None
+
+    print("")
     
     # Step 1: Download corpus
     if args.all or args.download:
