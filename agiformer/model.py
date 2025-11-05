@@ -18,6 +18,8 @@ from .core.base_components import FeedForward, LayerNorm, ResidualConnection
 from .core.memory_backbone import UnifiedMemoryBackbone
 from .core.multimodal_perception import MultimodalPerceptionCore
 from .experts.moe import MixtureOfExperts
+from .experts.knowledge_graph import GlobalKnowledgeGraph
+from .experts.relations import NUM_RELATIONS
 from .introspection.self_model import IntrospectionLoop
 
 class AGIFORMERBlock(nn.Module):
@@ -31,7 +33,8 @@ class AGIFORMERBlock(nn.Module):
         expert_types: list = None,
         dropout: float = 0.1,
         use_linear_attention: bool = False,
-        use_introspection: bool = False
+        use_introspection: bool = False,
+        global_knowledge_graph=None
     ):
         super().__init__()
         self.d_model = d_model
@@ -48,6 +51,7 @@ class AGIFORMERBlock(nn.Module):
         from .experts.logic_expert import LogicExpert
         from .experts.spatial_expert import SpatialExpert
         from .experts.causal_expert import CausalExpert
+        from .experts.neuro_symbolic_expert import NeuroSymbolicExpert
         from .experts.moe import Expert
 
         custom_experts = []
@@ -56,6 +60,7 @@ class AGIFORMERBlock(nn.Module):
             elif exp_type == 'logic': custom_experts.append(LogicExpert(d_model, d_ff, n_heads, dropout))
             elif exp_type == 'spatial': custom_experts.append(SpatialExpert(d_model, d_ff, n_heads, dropout))
             elif exp_type == 'causal': custom_experts.append(CausalExpert(d_model, d_ff, n_heads, dropout))
+            elif exp_type == 'neuro_symbolic': custom_experts.append(NeuroSymbolicExpert(d_model, d_ff, n_heads, dropout, global_knowledge_graph=global_knowledge_graph))
             else: custom_experts.append(Expert(d_model, d_ff, dropout))
         
         self.moe = MixtureOfExperts(
@@ -77,7 +82,7 @@ class AGIFORMERBlock(nn.Module):
         previous_states: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, Dict]:
         x = self.attn_residual(x, lambda y: self.attention(y, y, y, mask))
-        x, moe_info = self.moe(x, morpho_types=morpho_types)
+        x, moe_info = self.moe(x)
 
         introspection_info = {}
         if self.use_introspection:
@@ -119,15 +124,19 @@ class AGIFORMER(nn.Module):
         else: self.memory = None
         
         if expert_types is None: expert_types = ['language', 'logic', 'spatial', 'causal'][:n_experts]
-        
+
+        # Global Bilgi Grafiğini burada oluştur
+        self.global_knowledge_graph = GlobalKnowledgeGraph(num_concepts=1024, d_model=d_model, num_relations=NUM_RELATIONS)
+
         self.blocks = nn.ModuleList([
             AGIFORMERBlock(
                 d_model, n_heads, d_ff, n_experts, expert_types, dropout,
-                use_linear_attention, (use_introspection and (i == n_layers - 1))
+                use_linear_attention, (use_introspection and (i == n_layers - 1)),
+                global_knowledge_graph=self.global_knowledge_graph
             ) for i in range(n_layers)
         ])
         
-        self.output_proj = nn.Linear(d_model, vocab_size)
+        self.output_proj = nn.Linear(d_model, self.vocab_size)
         self.final_norm = LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
         self._init_parameters()
@@ -206,7 +215,7 @@ class AGIFORMER(nn.Module):
         generated = text.clone()
         with torch.no_grad():
             for _ in range(max_new_tokens):
-                logits, _ = self.forward(text=generated)
+                logits, _ = self.forward(input_ids=generated)
                 next_token_logits = logits[:, -1, :] / temperature
                 if top_k > 0:
                     indices_to_remove = next_token_logits < torch.topk(next_token_logits, top_k)[0][..., -1, None]

@@ -1,0 +1,68 @@
+# @package _group_
+
+# AGIFORMER RX590 Training Configuration
+# Memory-optimized training for RX590 8GB + Ryzen 3100
+
+# Developer: inkbytefo
+# Modified: 2025-11-06
+
+# Batch and Epochs (8GB VRAM optimized)
+batch_size: 2  # Küçük batch size
+epochs: 10
+max_steps: 5000  # Kısa eğitim için
+gradient_accumulation_steps: 8  # Effective batch size = 16
+
+# Learning Rate (Stable training için)
+learning_rate: 0.00005  # Daha düşük LR
+warmup_steps: 500  # Kısa warmup
+lr_scheduler: cosine
+
+# Optimizer (Memory efficient)
+optimizer: adamw
+adam_beta1: 0.9
+adam_beta2: 0.999
+adam_epsilon: 0.00000001
+weight_decay: 0.01
+
+# Mixed Precision (FP16 for memory savings)
+use_amp: true
+amp_dtype: float16
+
+# Gradient Control (Memory friendly)
+gradient_clip: 1.0
+use_gradient_checkpointing: true
+
+# Memory Optimizations
+empty_cache_steps: 10  # Her 10 adımda cache temizle
+memory_efficient_attention: true
+use_flash_attention: false  # RX590 için flash attention kapat
+
+# Logging and Checkpointing (Sık checkpoint)
+log_interval: 25  # Daha sık log
+save_interval: 250  # Daha sık checkpoint
+eval_interval: 100  # Daha sık eval
+checkpoint_dir: checkpoints_rx590
+keep_last_n_checkpoints: 3  # Daha az checkpoint tut
+
+# Early Stopping (Memory monitoring ile)
+early_stopping_patience: 5
+early_stopping_metric: val_loss
+
+# Data Loading (CPU bottleneck önleme)
+num_workers: 2  # Ryzen 3100 için
+pin_memory: true
+persistent_workers: false  # Memory için kapat
+prefetch_factor: 1
+
+# Sequence Length (Memory için sınırla)
+max_seq_len: 512  # Kısa sequence'ler
+vocab_size: 32000
+
+# Model Size Control
+max_model_params: 25000000  # 25M parametre limit
+use_model_parallelism: false
+
+# Monitoring
+memory_monitoring: true
+gpu_utilization_logging: true
+cpu_memory_logging: true

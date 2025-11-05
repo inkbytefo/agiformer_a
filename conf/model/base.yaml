@@ -10,7 +10,7 @@ d_ff: 2048
 
 # Mixture of Experts
 n_experts: 2
-expert_types: ["language", "logic"]
+expert_types: ["language", "neuro_symbolic"]
 
 # Memory System
 memory_size: 1000

@@ -165,8 +165,15 @@ class MixtureOfExperts(nn.Module):
         
         # Process through each expert and combine with weights
         expert_outputs = []
+        expert_infos = []
         for i, expert in enumerate(self.experts):
-            expert_out = expert(hidden_states)  # [batch, seq_len, d_model]
+            expert_result = expert(hidden_states)
+            if isinstance(expert_result, tuple):
+                expert_out, expert_info = expert_result
+                expert_infos.append(expert_info)
+            else:
+                expert_out = expert_result
+                expert_infos.append({})
             expert_outputs.append(expert_out)
         
         # Stack expert outputs: [n_experts, batch, seq_len, d_model]
@@ -191,7 +198,8 @@ class MixtureOfExperts(nn.Module):
         
         expert_info = {
             'router_info': router_info,
-            'num_active_experts': expert_indices.size(-1)
+            'num_active_experts': expert_indices.size(-1),
+            'expert_details': expert_infos
         }
         
         return output, expert_info

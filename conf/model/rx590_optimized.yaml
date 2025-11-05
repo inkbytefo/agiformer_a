@@ -1,0 +1,43 @@
+# AGIFORMER RX590 GPU Optimized Model Configuration
+# Memory-efficient model for RX590 8GB + Ryzen 3100
+
+# Developer: inkbytefo
+# Modified: 2025-11-06
+
+defaults:
+  - base
+
+# Architecture - RX590 Optimized (8GB VRAM)
+d_model: 512  # Base'den aynı, memory efficient attention ile
+n_layers: 8   # Base'den aynı
+n_heads: 8    # Base'den aynı
+d_ff: 2048    # Base'den aynı
+
+# Memory System - RX590 Optimized
+memory_size: 500  # Azaltılmış memory size
+max_seq_len: 512  # Eğitim için uygun
+
+# Feature flags for RX590 (memory enabled, selective features)
+use_memory: true
+use_introspection: false  # Memory için kapatıldı
+use_multimodal: false     # Memory için kapatıldı
+use_linear_attention: true  # Memory efficient attention
+
+# Mixture of Experts - RX590 Optimized
+n_experts: 2  # Azaltılmış expert sayısı
+expert_types: ["language", "logic"]  # Sadece temel expert'ler
+
+# Regularization - Memory friendly
+dropout: 0.1
+
+# Tokenizer - Memory efficient
+tokenizer_path: tokenizer/morphopiece.model
+
+# Memory Optimizations
+gradient_checkpointing: true
+use_memory_efficient_attention: true
+attention_memory_efficient: true
+
+# Model Size Control
+max_params: 25000000  # 25M parametre limiti
+vocab_size: 32000
