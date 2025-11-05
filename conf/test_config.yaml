@@ -1,0 +1,68 @@
+# @package _global_
+
+# AGIFORMER Test Configuration for Quick Training Test
+# Minimal settings for testing all integrations
+
+defaults:
+  - _self_
+  - model: minimal
+  - training: base
+  - data: base
+  - hardware: base
+  - logging: base
+
+# Override hardware settings
+hardware:
+  device: auto
+  pytorch_cuda_alloc_conf: null
+
+# Experiment metadata
+experiment_name: agiformer_test
+run_name: test_run_${now:%H%M%S}
+output_dir: test_outputs
+
+# Global settings
+seed: 42
+debug: true
+
+# Override minimal model settings
+model:
+  d_model: 64
+  n_layers: 2
+  n_heads: 4
+  d_ff: 256
+  n_experts: 2
+  expert_types: ["language", "neuro_symbolic"]
+  max_seq_len: 64
+  vocab_size: 256
+
+# Override training settings for quick test
+training:
+  optimizer: adamw
+  batch_size: 2
+  epochs: 1
+  max_steps: 5  # Very short training
+  learning_rate: 0.001
+  warmup_steps: 1
+  weight_decay: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 0.00000001
+  use_gradient_checkpointing: true
+  use_amp: true
+  checkpoint_dir: checkpoints
+  keep_last_n_checkpoints: 1
+
+# Override data settings for dummy data
+data:
+  data_dir: null
+  data_path: null
+  train_split: 0.9
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+
+# Override logging
+logging:
+  use_wandb: false
+  console_level: INFO

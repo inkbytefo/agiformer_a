@@ -59,7 +59,8 @@ data/
 .DS_Store
 Thumbs.db
 
-
+outputs
+test_outputs
 
 .github/instructions/kluster-code-verify.instructions.md
 .kluster

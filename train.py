@@ -13,6 +13,7 @@ import sys
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
+from torch.utils.data import Dataset, random_split
 
 # Hydra imports
 from omegaconf import DictConfig, OmegaConf
@@ -115,7 +116,11 @@ def validate_epoch(model, dataloader, criterion, device, use_amp, is_multimodal)
 def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metrics_logger, step_offset, is_multimodal, pseudo_labeler=None):
     model.train(); total_loss = 0
     # --- DEĞİŞİKLİK: 'device_type' argümanı kaldırıldı ---
-    scaler = torch.amp.GradScaler(enabled=use_amp)
+    try:
+        scaler = torch.amp.GradScaler(enabled=use_amp)
+    except AttributeError:
+        # Fallback for older PyTorch versions
+        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     for batch_idx, batch in enumerate(dataloader):
         model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
@@ -222,8 +227,8 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metric
         current_step = step_offset + batch_idx
         if metrics_logger and batch_idx % 10 == 0: metrics_logger.log_training_metrics(current_step, loss.item(), info)
         if batch_idx % 50 == 0:
-            if torch.cuda.is_available(): print(f"📊 GPU Memory: {torch.cuda.memory_allocated()/1e9:.2f}GB used")
-            print(f"🚀 Batch {batch_idx}, Loss: {loss.item():.4f}, Step: {current_step}")
+            if torch.cuda.is_available(): print(f"GPU Memory: {torch.cuda.memory_allocated()/1e9:.2f}GB used")
+            print(f"Batch {batch_idx}, Loss: {loss.item():.4f}, Step: {current_step}")
 
     return total_loss / len(dataloader), current_step + 1
 
@@ -282,7 +287,7 @@ def main(cfg: DictConfig) -> None:
     if cfg.hardware.pytorch_cuda_alloc_conf:
         if 'PYTORCH_CUDA_ALLOC_CONF' not in os.environ:
             os.environ['PYTORCH_CUDA_ALLOC_CONF'] = cfg.hardware.pytorch_cuda_alloc_conf
-            logger.info("🔧 Set PYTORCH_CUDA_ALLOC_CONF for better memory management")
+            logger.info("Set PYTORCH_CUDA_ALLOC_CONF for better memory management")
 
     # Determine device
     if cfg.hardware.device == "auto":
@@ -330,19 +335,22 @@ def main(cfg: DictConfig) -> None:
     # Load tokenizer
     logger.info("Loading MorphoPiece tokenizer...")
     tokenizer_path = getattr(cfg.model, 'tokenizer_path', 'tokenizer/morphopiece.model')
+    vocab_size = getattr(cfg.model, 'vocab_size', 256)  # Get vocab_size from config
     if os.path.exists(tokenizer_path):
         tokenizer = MorphoPiece(tokenizer_path)
         logger.info(f"Loaded tokenizer with vocab size: {tokenizer.vocab_size}")
     else:
-        logger.warning(f"Tokenizer not found at {tokenizer_path}, using default configuration")
-        tokenizer = None
+        logger.warning(f"Tokenizer not found at {tokenizer_path}, creating default tokenizer")
+        tokenizer = MorphoPiece()  # Create tokenizer without loading file
+        tokenizer.vocab_size = vocab_size  # Set vocab_size manually
+        logger.info(f"Created default tokenizer with vocab size: {vocab_size}")
 
     # Create model
     logger.info("Creating AGIFORMER model...")
     model = AGIFORMER(
         tokenizer=tokenizer,
         use_gradient_checkpointing=cfg.training.use_gradient_checkpointing,
-        **{k: v for k, v in cfg.model.items() if k != 'tokenizer_path'}
+        **{k: v for k, v in cfg.model.items() if k not in ['tokenizer_path', 'vocab_size']}
     ).to(device)
 
     # Log model information
@@ -408,7 +416,7 @@ def main(cfg: DictConfig) -> None:
     logger.info("Initialized PseudoLabeler for self-supervised relation learning")
 
     # Training loop
-    logger.info("🔥 Starting training...")
+    logger.info("Starting training...")
     logger.info(f"Batch size: {cfg.training.batch_size}, LR: {cfg.training.learning_rate}, AMP: {cfg.training.use_amp}")
 
     best_val_loss = float('inf')
@@ -420,7 +428,7 @@ def main(cfg: DictConfig) -> None:
                 logger.info(f"Reached max_steps ({cfg.training.max_steps}). Stopping training.")
                 break
 
-            logger.info(f"\n📅 Epoch {epoch + 1}/{cfg.training.epochs}")
+            logger.info(f"\nEpoch {epoch + 1}/{cfg.training.epochs}")
             avg_loss, end_step = train_epoch(
                 model, train_loader, optimizer, criterion, device,
                 cfg.training.use_amp, metrics_logger, global_step, is_multimodal, pseudo_labeler
