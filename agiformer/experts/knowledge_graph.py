@@ -26,6 +26,9 @@ class GlobalKnowledgeGraph(nn.Module):
         self.reasoning_conv1 = RGCNConv(d_model, d_model, num_relations)
         self.reasoning_conv2 = RGCNConv(d_model, d_model, num_relations)
 
+        # TorchScript derlemesi - PyG RGCNConv TorchScript uyumlu değil
+        # Bu yüzden normal PyTorch kodu kullanmaya devam ediyoruz
+
         # 3. Yazma/Güncelleme Mekanizması
         # Girdiden gelen yeni bilgiyi global grafa nasıl entegre edeceğimizi öğrenir.
         self.write_gate = nn.Sequential(
@@ -33,6 +36,17 @@ class GlobalKnowledgeGraph(nn.Module):
             nn.Sigmoid()
         )
         self.write_transform = nn.Linear(d_model, d_model)
+
+    def _reasoning_block(self, reasoning_input: torch.Tensor, edge_index: torch.Tensor, edge_type: torch.Tensor) -> torch.Tensor:
+        """
+        TorchScript uyumlu akıl yürütme bloğu.
+        RGCN ile ilişkisel mesajlaşma yapar.
+        """
+        # RGCN ile ilişkisel mesajlaşma
+        x = self.reasoning_conv1(reasoning_input, edge_index, edge_type)
+        x = torch.relu(x)
+        x = self.reasoning_conv2(x, edge_index, edge_type)
+        return reasoning_input + x  # Residual connection
 
     def forward(self, input_concepts: torch.Tensor, edge_index: torch.Tensor, edge_type: torch.Tensor):
         """
@@ -68,12 +82,8 @@ class GlobalKnowledgeGraph(nn.Module):
         reasoning_input = input_concepts + context_from_memory
 
         # --- Akıl Yürütme (Reasoning) Aşaması ---
-        # RGCN ile ilişkisel mesajlaşma
-        x = self.reasoning_conv1(reasoning_input, edge_index, edge_type)
-        x = F.relu(x)
-        x = self.reasoning_conv2(x, edge_index, edge_type)
-
-        reasoned_output = reasoning_input + x # Residual connection
+        # Normal PyTorch kodu kullan (TorchScript uyumluluk sorunu nedeniyle)
+        reasoned_output = self._reasoning_block(reasoning_input, edge_index, edge_type)
 
         # --- Yazma (Write) Aşaması (Eğer model eğitim modundaysa) ---
         if self.training:

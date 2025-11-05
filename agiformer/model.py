@@ -20,10 +20,10 @@ from .core.multimodal_perception import MultimodalPerceptionCore
 from .experts.moe import MixtureOfExperts
 from .experts.knowledge_graph import GlobalKnowledgeGraph
 from .experts.relations import NUM_RELATIONS
+from .experts.task_classifier import TaskTypeClassifier, EXPERT_DOMAINS
 from .introspection.self_model import IntrospectionLoop
 
 class AGIFORMERBlock(nn.Module):
-    # ... (Bu sınıfın içeriği aynı kalabilir, değişiklik yapmaya gerek yok)
     def __init__(
         self,
         d_model: int,
@@ -39,14 +39,20 @@ class AGIFORMERBlock(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.use_introspection = use_introspection
-        
+
         if use_linear_attention:
             self.attention = LinearAttention(d_model, n_heads, dropout)
         else:
             self.attention = MultiHeadAttention(d_model, n_heads, dropout)
-        
+
         self.attn_residual = ResidualConnection(d_model, dropout)
-        
+
+        # Yeni: Görev Türü Sınıflandırıcı
+        self.task_classifier = TaskTypeClassifier(d_model)
+
+        # Uzmanların hangi alana ait olduğunu belirten bir harita
+        self.expert_to_domain_map = self.map_experts_to_domains(expert_types)
+
         from .experts.language_expert import LanguageExpert
         from .experts.logic_expert import LogicExpert
         from .experts.spatial_expert import SpatialExpert
@@ -62,17 +68,30 @@ class AGIFORMERBlock(nn.Module):
             elif exp_type == 'causal': custom_experts.append(CausalExpert(d_model, d_ff, n_heads, dropout))
             elif exp_type == 'neuro_symbolic': custom_experts.append(NeuroSymbolicExpert(d_model, d_ff, n_heads, dropout, global_knowledge_graph=global_knowledge_graph))
             else: custom_experts.append(Expert(d_model, d_ff, dropout))
-        
+
         self.moe = MixtureOfExperts(
             d_model, n_experts, d_ff, k=2, dropout=dropout,
             custom_experts=custom_experts if custom_experts else None
         )
-        
+
         if use_introspection:
             self.introspection = IntrospectionLoop(d_model, max_iterations=2, n_heads=n_heads, dropout=dropout)
-        
+
         self.norm1 = LayerNorm(d_model)
         self.norm2 = LayerNorm(d_model)
+
+    def map_experts_to_domains(self, expert_types: list) -> torch.Tensor:
+        # Hangi uzmanın hangi alana ait olduğunu belirler.
+        # Örn: LanguageExpert -> LINGUISTIC, NeuroSymbolicExpert -> SYMBOLIC
+        mapping = []
+        for expert_type in expert_types:
+            if expert_type in ["language", "spatial"]: # Dilsel ve mekansal görevler
+                mapping.append(EXPERT_DOMAINS["LINGUISTIC"])
+            elif expert_type in ["neuro_symbolic", "logic", "causal"]: # Mantıksal görevler
+                mapping.append(EXPERT_DOMAINS["SYMBOLIC"])
+            else:
+                mapping.append(EXPERT_DOMAINS["LINGUISTIC"]) # Varsayılan
+        return torch.tensor(mapping, dtype=torch.long)
         
     def forward(
         self,
@@ -81,13 +100,37 @@ class AGIFORMERBlock(nn.Module):
         morpho_types: Optional[torch.Tensor] = None,
         previous_states: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, Dict]:
+        # --- YENİ MANTIK: AKILLI YÖNLENDİRME ---
+        # 1. Girdinin görev türünü tahmin et
+        task_logits = self.task_classifier(x) # Shape: [batch, num_domains]
+
+        # 2. Router için bir bias oluştur
+        # Her uzman için, tahmin edilen görev türüyle ne kadar uyumlu olduğuna dair bir skor
+        routing_bias = torch.zeros(x.size(0), len(self.expert_to_domain_map), device=x.device)
+
+        # Uzman-alan haritasını cihaza taşı
+        self.expert_to_domain_map = self.expert_to_domain_map.to(x.device)
+
+        # Her bir alan (domain) için, o alana ait uzmanları teşvik et
+        for domain_idx in range(len(EXPERT_DOMAINS)):
+            # Bu alana ait uzmanların maskesi
+            expert_mask = (self.expert_to_domain_map == domain_idx)
+            # Bu alanın tahmin edilen skoru
+            domain_score = task_logits[:, domain_idx]
+            # Skoru ilgili uzmanlara bias olarak ekle
+            routing_bias += expert_mask * domain_score.unsqueeze(-1)
+
+        # 3. MoE'yi bias ile çağır
         x = self.attn_residual(x, lambda y: self.attention(y, y, y, mask))
-        x, moe_info = self.moe(x)
+        x, moe_info = self.moe(x, routing_bias=routing_bias)
 
         introspection_info = {}
         if self.use_introspection:
             x, introspection_history = self.introspection(x, previous_states)
             introspection_info = introspection_history
+
+        # Eğitim için görev sınıflandırma logit'lerini de döndür
+        moe_info['task_logits'] = task_logits
 
         block_info = {'type': 'enhanced_block', 'moe': moe_info, 'introspection': introspection_info}
         return x, block_info

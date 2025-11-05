@@ -175,6 +175,86 @@ def test_pseudo_labeler():
         # Should have some syntactic relations
         assert len(labels_syntactic) > 0
 
+    # Test task type classification
+    task_type = labeler.classify_task_type(tokens)
+    assert isinstance(task_type, int)
+    assert task_type in [0, 1]  # LINGUISTIC or SYMBOLIC
+
+    # Test symbolic task detection
+    symbolic_tokens = ["Yağmur", "yağdığı", "çünkü", "ıslak"]
+    symbolic_task = labeler.classify_task_type(symbolic_tokens)
+    from agiformer.experts.task_classifier import EXPERT_DOMAINS
+    assert symbolic_task == EXPERT_DOMAINS["SYMBOLIC"]
+
+
+def test_task_type_classifier():
+    """Test TaskTypeClassifier"""
+    from agiformer.experts.task_classifier import TaskTypeClassifier, EXPERT_DOMAINS
+
+    classifier = TaskTypeClassifier(d_model=128)
+
+    # Test forward pass
+    batch_size = 2
+    hidden_states = torch.randn(batch_size, 10, 128)  # [batch, seq_len, d_model]
+
+    logits = classifier(hidden_states)
+
+    # Should return logits for each domain
+    assert logits.shape == (batch_size, len(EXPERT_DOMAINS))
+
+    # Test that softmax works
+    probs = torch.softmax(logits, dim=-1)
+    assert torch.allclose(probs.sum(dim=-1), torch.ones(batch_size))
+
+
+def test_performance_optimizations():
+    """Test that performance optimizations work together"""
+    from agiformer.experts.knowledge_graph import GlobalKnowledgeGraph
+
+    # Test GlobalKnowledgeGraph still works
+    kg = GlobalKnowledgeGraph(num_concepts=100, d_model=128, num_relations=5)
+
+    # Test forward pass still works
+    concepts = torch.randn(10, 128)
+    edge_index = torch.randint(0, 10, (2, 20))
+    edge_type = torch.randint(0, 5, (20,))
+
+    output = kg(concepts, edge_index, edge_type)
+    assert output.shape == concepts.shape
+
+    # Test gradient checkpointing in model
+    tokenizer = __import__('agiformer.language.tokenizer', fromlist=['MorphoPiece']).MorphoPiece()
+    tokenizer.vocab_size = 256
+
+    model = AGIFORMER(
+        tokenizer=tokenizer,
+        d_model=128,
+        n_layers=2,
+        n_heads=4,
+        use_gradient_checkpointing=True
+    )
+
+    # Test forward pass with gradient checkpointing
+    input_ids = torch.randint(0, 256, (2, 10))
+    logits, info = model(input_ids)
+    assert logits.shape[0] == 2
+    assert logits.shape[2] == 256
+
+    # Test AMP compatibility
+    model_amp = AGIFORMER(
+        tokenizer=tokenizer,
+        d_model=128,
+        n_layers=2,
+        n_heads=4,
+        use_gradient_checkpointing=False
+    )
+
+    # Test with autocast
+    with torch.cuda.amp.autocast(enabled=True):
+        logits_amp, info_amp = model_amp(input_ids)
+        assert logits_amp.shape[0] == 2
+        assert logits_amp.shape[2] == 256
+
 
 def test_generation():
     """Test text generation"""

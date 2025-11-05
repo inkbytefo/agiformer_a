@@ -131,6 +131,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metric
 
             # --- YENİ: İLİŞKİ KAYBI HESAPLAMA ---
             relation_loss = 0.0
+            task_loss = 0.0
             if pseudo_labeler and info.get('blocks'):
                 for block_info in info['blocks']:
                     # NeuroSymbolicExpert'in çıktısını bul
@@ -180,8 +181,35 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metric
                                             # Hata durumunda ilişki kaybını atla
                                             pass
 
-            # İlişki kaybını ana kayba ekle (ağırlıklandırılmış)
+                    # Görev sınıflandırma kaybını hesapla
+                    if 'moe' in block_info and 'task_logits' in block_info['moe']:
+                        task_logits = block_info['moe']['task_logits']
+
+                        # İlk batch için görev türü etiketini üret
+                        try:
+                            batch_tokens = []
+                            for seq in model_inputs['input_ids'][:1]:  # İlk örnek
+                                tokens = []
+                                for token_id in seq:
+                                    if token_id.item() < model.tokenizer.vocab_size:
+                                        tokens.append(str(token_id.item()))
+                                    else:
+                                        tokens.append("[UNK]")
+                                batch_tokens.append(tokens)
+
+                            if batch_tokens:
+                                task_label = pseudo_labeler.classify_task_type(batch_tokens[0])
+                                task_labels = torch.tensor([task_label], device=device)
+
+                                task_criterion = nn.CrossEntropyLoss()
+                                task_loss += task_criterion(task_logits[:1], task_labels)  # İlk örnek için
+                        except Exception as e:
+                            # Hata durumunda görev kaybını atla
+                            pass
+
+            # İlişki kaybını ve görev kaybını ana kayba ekle (ağırlıklandırılmış)
             total_loss_batch += relation_loss * 0.1
+            total_loss_batch += task_loss * 0.05
 
         optimizer.zero_grad()
         scaler.scale(total_loss_batch).backward()

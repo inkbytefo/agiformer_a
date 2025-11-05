@@ -33,31 +33,38 @@ class ExpertRouter(nn.Module):
         
     def forward(
         self,
-        hidden_states: torch.Tensor
+        hidden_states: torch.Tensor,
+        routing_bias: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
         """
         Route inputs to experts
-        
+
         Args:
             hidden_states: [batch_size, seq_len, d_model]
-        
+            routing_bias: Optional[torch.Tensor] - external bias for routing. Shape: [batch_size, n_experts]
+
         Returns:
             expert_weights: [batch_size, seq_len, n_experts] - routing weights
             expert_indices: [batch_size, seq_len, k] - indices of top-k experts
             router_info: Dict with routing statistics
         """
         batch_size, seq_len = hidden_states.size(0), hidden_states.size(1)
-        
+
         # Compute router logits
         router_logits = self.router(hidden_states)  # [batch, seq_len, n_experts]
-        
+
+        if routing_bias is not None:
+            # routing_bias shape: [batch, n_experts]
+            # [batch, 1, n_experts] olarak genişletip ekle
+            router_logits = router_logits + routing_bias.unsqueeze(1)
+
         # Get top-k experts
         expert_weights = F.softmax(router_logits, dim=-1)
         top_k_weights, top_k_indices = torch.topk(expert_weights, k=self.k, dim=-1)
-        
+
         # Renormalize top-k weights
         top_k_weights = top_k_weights / (top_k_weights.sum(dim=-1, keepdim=True) + 1e-8)
-        
+
         # Compute load balancing loss (encourages uniform expert usage)
         router_info = {}
         if self.training:
@@ -68,10 +75,10 @@ class ExpertRouter(nn.Module):
                 self.n_experts * (avg_router_weights ** 2).sum()
             )
             router_info['load_balancing_loss'] = load_balancing_loss
-        
+
         router_info['expert_usage'] = top_k_indices.float().mean(dim=(0, 1)).cpu().tolist()
         router_info['avg_router_confidence'] = top_k_weights.mean().item()
-        
+
         return top_k_weights, top_k_indices, router_info
 
 
@@ -148,20 +155,22 @@ class MixtureOfExperts(nn.Module):
         
     def forward(
         self,
-        hidden_states: torch.Tensor
+        hidden_states: torch.Tensor,
+        routing_bias: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, Dict]:
         """
         Args:
             hidden_states: [batch_size, seq_len, d_model]
-        
+            routing_bias: Optional[torch.Tensor] - external bias for routing. Shape: [batch_size, n_experts]
+
         Returns:
             output: [batch_size, seq_len, d_model]
             expert_info: Dict with expert statistics
         """
         batch_size, seq_len = hidden_states.size(0), hidden_states.size(1)
-        
+
         # Route to experts
-        expert_weights, expert_indices, router_info = self.router(hidden_states)
+        expert_weights, expert_indices, router_info = self.router(hidden_states, routing_bias=routing_bias)
         
         # Process through each expert and combine with weights
         expert_outputs = []

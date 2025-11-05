@@ -67,3 +67,34 @@ class PseudoLabeler:
         #             pass
 
         return labels
+
+    def classify_task_type(self, tokens: list[str]) -> int:
+        """
+        Cümlenin genel görev türünü sınıflandırır.
+
+        Args:
+            tokens (list[str]): Cümlenin token'ları.
+
+        Returns:
+            int: Görev türü ID'si (0: LINGUISTIC, 1: SYMBOLIC)
+        """
+        from .task_classifier import EXPERT_DOMAINS
+
+        sentence = " ".join(tokens)
+
+        # Sembolik görev göstergeleri
+        symbolic_indicators = [
+            "çünkü", "nedeniyle", "bu yüzden", "dolayısıyla",  # Nedensellik
+            "eğer", "ise", "ise", "ise",  # Koşulluluk
+            "tüm", "bazı", "hiçbir", "her",  # Niceleyiciler
+            "mantıklı", "çıkarım", "sonuç", "çözüm"  # Mantık terimleri
+        ]
+
+        # Sembolik göstergelerin sayısı
+        symbolic_count = sum(1 for token in tokens if token.lower() in symbolic_indicators)
+
+        # Eğer sembolik göstergeler varsa veya ilişki etiketleri varsa SYMBOLIC
+        if symbolic_count > 0 or self.generate_labels(tokens, torch.randn(len(tokens), 128)):
+            return EXPERT_DOMAINS["SYMBOLIC"]
+        else:
+            return EXPERT_DOMAINS["LINGUISTIC"]
