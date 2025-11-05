@@ -49,3 +49,6 @@ gensim>=4.3.0
 
 # Tokenizer Training
 sentencepiece>=0.1.99
+
+# Turkish Morphological Analysis (Zemberek)
+zemberek-nlp>=0.17.1
