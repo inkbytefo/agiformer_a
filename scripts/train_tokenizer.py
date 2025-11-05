@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Developer: inkbytefo
-# AI: Claude Sonnet 4.5
-# Modified: 2025-11-01
+# Modified: 2025-11-05
 """
 ============================================================================
 MorphoPiece Tokenizer Training Script
@@ -10,13 +9,23 @@ MorphoPiece Tokenizer Training Script
 ============================================================================
 """
 
-import os
 import sys
+from pathlib import Path
+
+# Projenin kök dizinini (agiformer_b) Python path'ine ekle
+# Bu betik scripts/ dizininde olduğu için, iki üst dizine çıkmamız gerekiyor.
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
+import os
 import json
 import argparse
-from pathlib import Path
 from tqdm import tqdm
 import sentencepiece as spm
+
+# Morphological analysis
+# Path correction above should fix this import
+from agiformer.language.morpho_splitter import MorphoSplitter
 
 # Data collection imports
 try:
@@ -24,13 +33,6 @@ try:
 except ImportError:
     print("❌ datasets library not found. Install: pip install datasets")
     sys.exit(1)
-
-# Morphological analysis
-try:
-    from agiformer.language.morpho_splitter import MorphoSplitter
-except ImportError:
-    print("Warning: MorphoSplitter not available, using basic functionality")
-    MorphoSplitter = None
 
 def download_mc4_turkish(output_file: str, max_size_gb: float = 0.75) -> bool:
     """
