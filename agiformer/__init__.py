@@ -9,6 +9,10 @@ from .core.morfo_semantic_tokenizer import MorfoSemanticTokenizer
 from .core.memory_backbone import UnifiedMemoryBackbone
 from .experts.moe import MixtureOfExperts
 
+# Data and quality control
+from . import datasets
+from . import data_quality
+
 __version__ = "0.1.0"
 __all__ = [
     "AGIFORMER",
@@ -16,5 +20,6 @@ __all__ = [
     "MorfoSemanticTokenizer",
     "UnifiedMemoryBackbone",
     "MixtureOfExperts",
+    "datasets",
+    "data_quality",
 ]
-

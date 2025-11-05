@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-0.1.0-orange.svg)](https://github.com/yourusername/agiformer)
 
-AGIFORMER, Yapay Genel Zeka'ya yönelik geliştirilmiş devrim niteliğinde bir Transformer mimarisidir. Çoklu modalite işleme, uzmanlaşmış akıl yürütme motorları, bellek sistemi ve iç gözlem yeteneklerini bir araya getirerek geleneksel dil modellerinin ötesine geçmeyi hedefler.
+AGIFORMER, Yapay Genel Zeka'ya yönelik geliştirilmiş devrim niteliğinde bir Transformer mimarisidir. TMA-1'in güçlü Türkçe dil işleme yeteneklerini entegre ederek çoklu modalite işleme, uzmanlaşmış akıl yürütme motorları, bellek sistemi ve iç gözlem yeteneklerini bir araya getirerek geleneksel dil modellerinin ötesine geçmeyi hedefler.
 
 ## ✨ Ana Özellikler
 
@@ -13,7 +13,8 @@ AGIFORMER, Yapay Genel Zeka'ya yönelik geliştirilmiş devrim niteliğinde bir 
 - 🎯 **Multimodal Algı**: Metin, görüntü, ses ve video işleme
 - 💾 **Gelişmiş Bellek Sistemi**: Çalışma belleği + uzun süreli bellek
 - 🔍 **İç Gözlem**: Kendi kendini gözlemleme ve iteratif iyileştirme
-- 📝 **Morfo-Sematik Tokenizer**: Karakter seviyesinde zenginleştirilmiş tokenizasyon
+- 📝 **MorphoPiece Tokenizer**: Türkçe morfolojik farkındalıklı tokenizasyon
+- 🇹🇷 **Türkçe Dil İşleme**: TMA-1 entegrasyonu ile gelişmiş Türkçe anlayışı
 - ⚡ **Optimize Edilmiş Performans**: Mixed precision, gradient_checkpointing desteği
 
 ## 🚀 Hızlı Başlangıç
@@ -96,7 +97,7 @@ print(f"Çıktı: {result}")
 ## 🧩 Bileşenler
 
 ### 1. Uzman Sistemi (MoE)
-- **Dil Uzmanı**: Qwen3-0.6B LLM entegrasyonu
+- **Dil Uzmanı**: AgglutinativeAttention ile Türkçe morfolojik farkındalık
 - **Mantık Uzmanı**: İlişkisel akıl yürütme
 - **Mekansal Uzman**: Geometrik özellik çıkarma
 - **Nedensel Uzman**: Sebep-sonuç ilişkileri
@@ -105,7 +106,7 @@ print(f"Çıktı: {result}")
 - **Görüntü**: CLIP tabanlı encoder
 - **Ses**: 1D evrişimli ağlar
 - **Video**: Spatio-temporal işleme
-- **Metin**: Morfo-semantic tokenizasyon
+- **Metin**: MorphoPiece tokenizasyon (Türkçe morfolojik farkındalık)
 
 ### 3. Bellek Sistemi
 - **Working Memory**: Segment-level recurrence
@@ -269,23 +270,31 @@ agiformer/
 │   ├── core/                 # Çekirdek bileşenler
 │   │   ├── attention.py      # Attention mekanizmaları
 │   │   ├── memory_backbone.py # Bellek sistemi
-│   │   ├── multimodal_perception.py # Multimodal
-│   │   └── morfo_semantic_tokenizer.py # Tokenizer
+│   │   └── multimodal_perception.py # Multimodal
+│   ├── language/             # ✅ YENİ: Dil işleme modülleri
+│   │   ├── morpho_splitter.py    # Morfem ayrımı
+│   │   ├── tokenizer.py          # MorphoPiece tokenizer
+│   │   ├── grammar_engine.py     # Dilbilgisi motoru
+│   │   └── attention.py          # AgglutinativeAttention
+│   ├── data/                 # ✅ YENİ: Veri işleme modülleri
+│   │   └── dataset.py            # TurkishTextDataset
 │   ├── experts/              # Uzman sistemleri
 │   │   ├── moe.py           # MoE yönlendirme
-│   │   ├── language_expert.py # Dil uzmanı
+│   │   ├── language_expert.py # Dil uzmanı (AgglutinativeAttention)
 │   │   ├── logic_expert.py   # Mantık uzmanı
 │   │   ├── spatial_expert.py # Mekansal uzman
 │   │   └── causal_expert.py  # Nedensel uzman
 │   ├── introspection/        # İç gözlem sistemi
 │   │   ├── self_model.py    # Self-model
 │   │   └── meta_learning.py # Meta-learning
-│   └── model.py              # Ana model
+│   └── model.py              # Ana model (MorphoPiece entegrasyonu)
 ├── configs/                  # Konfigürasyon dosyaları
 ├── examples/                 # Kullanım örnekleri
 ├── scripts/                  # Yardımcı script'ler
+│   ├── preprocess_language_data.py  # ✅ YENİ: Veri ön işleme
+│   └── train_tokenizer.py           # ✅ YENİ: Tokenizer eğitimi
 ├── tests/                    # Testler
-└── train.py                  # Eğitim script'i
+└── train.py                  # Eğitim script'i (güncellendi)
 ```
 
 ## 🤝 Katkı

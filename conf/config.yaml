@@ -1,0 +1,21 @@
+# @package _global_
+
+# AGIFORMER Main Configuration with Hydra
+# This is the main config file that composes all other configs
+
+defaults:
+  - _self_
+  - model: base
+  - training: base
+  - data: base
+  - hardware: base
+  - logging: base
+
+# Experiment metadata
+experiment_name: agiformer_experiment
+run_name: ${experiment_name}_${now:%Y%m%d_%H%M%S}
+output_dir: outputs/${run_name}
+
+# Global settings
+seed: 42
+debug: false

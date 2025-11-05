@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from typing import Optional, Dict, Tuple, Union
 from torch.utils.checkpoint import checkpoint # <-- DEĞİŞİKLİK: Checkpoint'i import et
 
-from .core.morfo_semantic_tokenizer import MorfoSemanticTokenizer
+from ..language.tokenizer import MorphoPiece
 from .core.attention import MultiHeadAttention, LinearAttention
 from .core.base_components import FeedForward, LayerNorm, ResidualConnection
 from .core.memory_backbone import UnifiedMemoryBackbone
@@ -69,15 +69,21 @@ class AGIFORMERBlock(nn.Module):
         self.norm1 = LayerNorm(d_model)
         self.norm2 = LayerNorm(d_model)
         
-    def forward( self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, previous_states: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, Dict]:
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        morpho_types: Optional[torch.Tensor] = None,
+        previous_states: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, Dict]:
         x = self.attn_residual(x, lambda y: self.attention(y, y, y, mask))
-        x, moe_info = self.moe(x)
-        
+        x, moe_info = self.moe(x, morpho_types=morpho_types)
+
         introspection_info = {}
         if self.use_introspection:
             x, introspection_history = self.introspection(x, previous_states)
             introspection_info = introspection_history
-        
+
         block_info = {'type': 'enhanced_block', 'moe': moe_info, 'introspection': introspection_info}
         return x, block_info
 
@@ -85,8 +91,8 @@ class AGIFORMERBlock(nn.Module):
 class AGIFORMER(nn.Module):
     def __init__(
         self,
-        # ... (diğer parametreler aynı kalır)
-        vocab_size: int = 256, d_model: int = 768, n_layers: int = 12, n_heads: int = 12,
+        tokenizer: MorphoPiece,  # YENİ: Tokenizer parametre olarak alınacak
+        d_model: int = 768, n_layers: int = 12, n_heads: int = 12,
         d_ff: int = 3072, n_experts: int = 4, expert_types: list = None, memory_size: int = 10000,
         max_seq_len: int = 2048, dropout: float = 0.1, use_linear_attention: bool = False,
         use_memory: bool = True, use_introspection: bool = True, use_multimodal: bool = True,
@@ -94,17 +100,20 @@ class AGIFORMER(nn.Module):
         use_gradient_checkpointing: bool = False
     ):
         super().__init__()
-        
-        self.vocab_size = vocab_size
+
+        # Tokenizer'ı sakla ve vocab_size'ı ondan al
+        self.tokenizer = tokenizer
+        self.vocab_size = tokenizer.vocab_size
         self.d_model = d_model
         self.n_layers = n_layers
         self.max_seq_len = max_seq_len
         self.use_gradient_checkpointing = use_gradient_checkpointing # <-- DEĞİŞİKLİK: Değeri sakla
 
-        if use_multimodal: self.multimodal_perception = MultimodalPerceptionCore(d_model, vocab_size, 2, n_heads, dropout)
+        # Token embedding layer (MorphoPiece sadece tokenization yapıyor)
+        self.token_embedding = nn.Embedding(self.vocab_size, d_model)
+
+        if use_multimodal: self.multimodal_perception = MultimodalPerceptionCore(d_model, self.vocab_size, 2, n_heads, dropout)
         else: self.multimodal_perception = None
-        
-        self.tokenizer = MorfoSemanticTokenizer(vocab_size, d_model, kernel_size=3, dropout=dropout)
         
         if use_memory: self.memory = UnifiedMemoryBackbone(d_model, memory_size, max_seq_len // 2, 10)
         else: self.memory = None
@@ -130,23 +139,25 @@ class AGIFORMER(nn.Module):
 
     def forward(
         self,
-        text: Optional[torch.Tensor] = None,
+        input_ids: Optional[torch.Tensor] = None,  # YENİ: text yerine input_ids
+        morpho_types: Optional[torch.Tensor] = None,  # YENİ: morfolojik tipler
         image: Optional[torch.Tensor] = None,
         audio: Optional[torch.Tensor] = None,
         video: Optional[torch.Tensor] = None,
-        mask: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,  # YENİ: mask yerine attention_mask
         return_embeddings: bool = False
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict]]:
         model_info = {}
-        
+
         if self.multimodal_perception and (image is not None or audio is not None or video is not None):
-            modality_embeds, x = self.multimodal_perception(text=text, image=image, audio=audio, video=video)
+            modality_embeds, x = self.multimodal_perception(text=input_ids, image=image, audio=audio, video=video)
             model_info['multimodal'] = True
             model_info['modalities'] = list(modality_embeds.keys())
-        elif text is not None:
-            x = self.tokenizer(text)
+        elif input_ids is not None:
+            # Input_ids zaten tokenize edilmiş, embedding'e çevir
+            x = self.token_embedding(input_ids)  # Token embedding
             model_info['multimodal'] = False
-            model_info['tokenizer'] = 'simplified_morfo_semantic'
+            model_info['tokenizer'] = 'morphopiece'
         else:
             raise ValueError("At least one input modality must be provided")
             
@@ -164,11 +175,11 @@ class AGIFORMER(nn.Module):
                 # `checkpoint` fonksiyonu, `block`'un forward'ını çağırır
                 # ama ara aktivasyonları saklamaz, bunun yerine geri yayılımda yeniden hesaplar.
                 # Bu, bellekten tasarruf sağlar.
-                x, block_info = checkpoint(block, x, mask, previous_states, use_reentrant=False)
+                x, block_info = checkpoint(block, x, attention_mask, morpho_types, previous_states, use_reentrant=False)
             else:
                 # Normal forward pass (eğitimde değilsek veya checkpointing kapalıysa)
-                x, block_info = block(x, mask=mask, previous_states=previous_states)
-            
+                x, block_info = block(x, mask=attention_mask, morpho_types=morpho_types, previous_states=previous_states)
+
             all_block_info.append(block_info)
             if previous_states is not None: previous_states = torch.cat([previous_states, x], dim=1)
             else: previous_states = x

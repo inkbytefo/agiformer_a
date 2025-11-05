@@ -18,14 +18,15 @@
 
 ## Genel Bakış
 
-AGIFORMER (Artificial General Intelligence Transformer), Yapay Genel Zeka'ya yönelik geliştirilmiş devrim niteliğinde bir Transformer mimarisidir. Proje, çoklu modalite işleme, uzmanlaşmış akıl yürütme motorları, bellek sistemi ve iç gözlem yeteneklerini bir araya getirerek geleneksel dil modellerinin ötesine geçmeyi hedefler.
+AGIFORMER (Artificial General Intelligence Transformer), Yapay Genel Zeka'ya yönelik geliştirilmiş devrim niteliğinde bir Transformer mimarisidir. TMA-1'in güçlü Türkçe dil işleme yeteneklerini entegre ederek çoklu modalite işleme, uzmanlaşmış akıl yürütme motorları, bellek sistemi ve iç gözlem yeteneklerini bir araya getirerek geleneksel dil modellerinin ötesine geçmeyi hedefler.
 
 ### Ana Özellikler
 - **Multimodal Algı**: Metin, görüntü, ses ve video işleme
 - **Uzman Karışımı (MoE)**: 4 uzmanlaşmış akıl yürütme motoru
 - **Bellek Sistemi**: Çalışma belleği + uzun süreli bellek
 - **İç Gözlem**: Kendi kendini gözlemleme ve iyileştirme
-- **Morfo-Sematik Tokenizer**: Karakter seviyesinde zenginleştirilmiş tokenizasyon
+- **MorphoPiece Tokenizer**: Türkçe morfolojik farkındalıklı tokenizasyon
+- **Türkçe Dil İşleme**: TMA-1 entegrasyonu ile gelişmiş morfolojik analiz
 
 ---
 
@@ -45,7 +46,7 @@ AGIFORMER (Artificial General Intelligence Transformer), Yapay Genel Zeka'ya yö
 │  └─────────────────────────────────────────────────┘     │
 │                           │                                 │
 │  ┌─────────────────────────────────────────────────┐     │
-│  │        Morfo-Semantic Tokenizer                │     │
+│  │        MorphoPiece Tokenizer                    │     │
 │  └─────────────────────────────────────────────────┘     │
 │                           │                                 │
 │  ┌─────────────────────────────────────────────────┐     │
@@ -80,10 +81,11 @@ AGIFORMER'ın ana sınıfı, tüm bileşenleri bir araya getiren merkezi yapıd�
 
 ```python
 class AGIFORMER(nn.Module):
-    def __init__(self, vocab_size=256, d_model=768, n_layers=12, 
-                 n_heads=12, d_ff=3072, n_experts=4, 
+    def __init__(self, vocab_size=256, d_model=768, n_layers=12,
+                 n_heads=12, d_ff=3072, n_experts=4,
                  expert_types=["language", "logic", "spatial", "causal"],
                  memory_size=10000, max_seq_len=2048, dropout=0.1,
+                 tokenizer=None,  # MorphoPiece tokenizer instance
                  use_linear_attention=False, use_memory=True,
                  use_introspection=True, use_multimodal=True):
 ```
@@ -315,7 +317,7 @@ Girdi Modaliteleri
      ↓
 Multimodal Perception Core
      ↓
-Morfo-Semantic Tokenizer (sadece metin için)
+MorphoPiece Tokenizer (sadece metin için)
      ↓
 Bellek Sistemi (Working + Long-term)
      ↓
@@ -334,8 +336,8 @@ Output Projection
 - Birleşik temsil vektörü
 
 **Adım 2: Tokenizasyon**
-- Metin için Morfo-Semantic Tokenizer
-- Karakter n-gram öğrenimi
+- Metin için MorphoPiece Tokenizer
+- Türkçe morfolojik farkındalıklı tokenizasyon
 - Zenginleştirilmiş token embedding'leri
 
 **Adım 3: Bellek Entegrasyonu**
@@ -437,6 +439,7 @@ model = AGIFORMER(
     memory_size=10000,       # Bellek boyutu
     max_seq_len=2048,        # Maksimum dizi uzunluğu
     dropout=0.1,             # Dropout oranı
+    tokenizer=tokenizer,     # MorphoPiece tokenizer instance
     use_linear_attention=False,
     use_memory=True,         # Bellek sistemi aktif
     use_introspection=True,  # İç gözlem aktif
@@ -571,7 +574,43 @@ if 'introspection' in last_block:
     print(f"Güven skoru: {introspection_info['final_confidence']:.3f}")
 ```
 
-### 4. Eğitim Örneği
+### 4. MorphoPiece Tokenizer Entegrasyonu
+
+```python
+import torch
+from agiformer import AGIFORMER
+from agiformer.language import MorphoPieceTokenizer
+
+# MorphoPiece tokenizer oluştur
+tokenizer = MorphoPieceTokenizer(vocab_size=32000, model_path="path/to/model")
+
+# Tokenizer ile AGIFORMER modelini oluştur
+model = AGIFORMER(
+    vocab_size=tokenizer.vocab_size,
+    d_model=768,
+    n_layers=12,
+    tokenizer=tokenizer,  # MorphoPiece tokenizer entegrasyonu
+    use_memory=True,
+    use_introspection=True
+)
+model.eval()
+
+# Türkçe metin işleme
+text = "Merhaba dünya, bu bir test metnidir."
+tokens = tokenizer.tokenize(text)
+input_ids = torch.tensor([tokens], dtype=torch.long)
+
+# Model ile işleme
+with torch.no_grad():
+    logits, info = model(text=input_ids)
+
+# Metin üretimi
+generated_tokens = model.generate(input_ids, max_new_tokens=50)
+generated_text = tokenizer.decode(generated_tokens[0].cpu().numpy())
+print(f"Oluşturulan metin: {generated_text}")
+```
+
+### 5. Eğitim Örneği
 
 ```python
 import torch

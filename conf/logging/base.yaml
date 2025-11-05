@@ -1,0 +1,35 @@
+# @package _group_
+
+# AGIFORMER Base Logging Configuration
+# Default logging settings for AGIFORMER
+
+# Console Logging
+console_level: INFO
+console_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# File Logging
+file_logging: true
+log_dir: logs
+log_file: ${experiment_name}.log
+file_level: DEBUG
+file_format: "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+
+# Weights & Biases
+use_wandb: false
+wandb_project: agiformer
+wandb_entity: null
+wandb_tags: []
+wandb_notes: ""
+
+# TensorBoard
+use_tensorboard: false
+tensorboard_log_dir: tensorboard_logs
+
+# Progress Bars
+use_tqdm: true
+tqdm_position: 0
+
+# Logging Intervals
+log_model_info: true
+log_memory_usage: true
+log_gpu_stats: true

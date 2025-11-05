@@ -12,7 +12,7 @@ graph TB
     end
     
     subgraph "Ön İşleme"
-        E --> F[Morfo-Semantic Tokenizer]
+        E --> F[MorphoPiece Tokenizer]
         F --> G[Bellek Sistemi]
     end
     
@@ -266,7 +266,7 @@ graph TB
 sequenceDiagram
     participant User as Kullanıcı
     participant MP as Multimodal Perception
-    participant MS as Morfo-Semantic Tokenizer
+    participant MS as MorphoPiece Tokenizer
     participant MEM as Memory System
     participant BLOCK as AGIFORMER Blocks
     participant OUT as Output
@@ -277,7 +277,7 @@ sequenceDiagram
     MP->>MS: Unified representation
     
     alt Text-only
-        MS->>MS: Morfo-semantic tokenization
+        MS->>MS: MorphoPiece tokenization
     else Multimodal
         MS->>MS: Skip tokenization
     end

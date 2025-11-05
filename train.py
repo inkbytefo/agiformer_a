@@ -1,17 +1,31 @@
+# Developer: inkbytefo
+# Modified: 2025-11-05
+
 """
-Professional Training Script for AGIFORMER
-*** UPDATED WITH TypeError FIX FOR GradScaler ***
+Professional Training Script for AGIFORMER with Hydra Configuration
+Supports flexible configuration management and experiment tracking
 """
 
-import torch, torch.nn as nn, yaml, argparse, json, os, sys, logging
-from torch.utils.data import Dataset, DataLoader, random_split
+import torch
+import torch.nn as nn
+import os
+import sys
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
+
+# Hydra imports
+from omegaconf import DictConfig, OmegaConf
+import hydra
+from hydra.core.config_store import ConfigStore
+from hydra.utils import get_original_cwd
 
 sys.path.insert(0, str(Path(__file__).parent))
 from agiformer import AGIFORMER
 from agiformer.utils import count_parameters, format_number, WarmupScheduler
-from scripts.prepare_cc12m import CC12MDataset
+from agiformer.datasets import CC12MDataset
+from agiformer.language.tokenizer import MorphoPiece
+from agiformer.data.dataset import TurkishTextDataset, create_dataloader
 
 try:
     import wandb
@@ -68,9 +82,22 @@ class SimpleTextDataset(Dataset):
 
 def prepare_batch_data(batch, device, is_multimodal):
     if is_multimodal:
-        return {'text': batch['input_ids'].to(device), 'image': batch['image'].to(device)}, batch['target_ids'].to(device)
+        return {
+            'input_ids': batch['input_ids'].to(device),
+            'morpho_types': batch.get('morpho_types', None),
+            'image': batch['image'].to(device)
+        }, batch['target_ids'].to(device)
     else:
-        input_ids, target_ids = batch; return {'text': input_ids.to(device)}, target_ids.to(device)
+        if isinstance(batch, dict):
+            # JSONL format with morpho_types
+            return {
+                'input_ids': batch['input_ids'].to(device),
+                'morpho_types': batch.get('morpho_types', None)
+            }, batch['target_ids'].to(device)
+        else:
+            # Legacy format
+            input_ids, target_ids = batch
+            return {'input_ids': input_ids.to(device)}, target_ids.to(device)
 
 def validate_epoch(model, dataloader, criterion, device, use_amp, is_multimodal):
     model.eval(); total_loss = 0
@@ -117,8 +144,8 @@ def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metric
 
     return total_loss / len(dataloader), current_step + 1
 
-def create_dataset(data_dir, data_path, model_config, train_split) -> Tuple[Dataset, Dataset, bool]:
-    # (Bu fonksiyonun içeriği önceki düzeltmeyle aynı kalır)
+def create_dataset(data_dir, data_path, model_config, train_split, tokenizer=None) -> Tuple[Dataset, Dataset, bool]:
+    # Check for CC12M multimodal dataset first
     if data_dir and Path(data_dir).exists():
         train_metadata, val_metadata = Path(data_dir)/"metadata_train.json", Path(data_dir)/"metadata_val.json"
         if train_metadata.exists() and val_metadata.exists():
@@ -127,97 +154,227 @@ def create_dataset(data_dir, data_path, model_config, train_split) -> Tuple[Data
             val_ds = CC12MDataset(data_dir, "val", max_text_len=model_config['max_seq_len'], vocab_size=model_config['vocab_size'])
             return train_ds, val_ds, True
 
+    # Check for Turkish text dataset (JSONL with morpho_types)
+    if data_path and Path(data_path).exists() and data_path.endswith('.jsonl'):
+        print(f"Loading Turkish text dataset from: {data_path}")
+        train_ds, val_ds = create_dataloader(
+            corpus_file=data_path,
+            tokenizer_path=None,  # We'll use the loaded tokenizer
+            batch_size=1,  # Not used here
+            max_seq_len=model_config['max_seq_len'],
+            is_jsonl=True
+        )
+        return train_ds.dataset, val_ds.dataset, False
+
+    # Fallback to simple text dataset
     print("Using fallback text-only dataset")
     dummy_texts = [
-        "This is a sample text for training.", "The quick brown fox jumps over the lazy dog.",
-        "Machine learning is fascinating.", "Deep learning models require large datasets.",
-        "Natural language processing is evolving rapidly.", "Transformers revolutionized AI research.",
-        "Attention mechanisms are powerful.", "AGIFORMER represents the future of AI."
+        "Bu bir eğitim metnidir.", "Hızlı kahverengi tilki tembel köpeğin üstünden atlar.",
+        "Makine öğrenmesi büyüleyicidir.", "Derin öğrenme modelleri büyük veri kümeleri gerektirir.",
+        "Doğal dil işleme hızla gelişmektedir.", "Transformer'lar AI araştırmalarını devrimleştirdi.",
+        "Dikkat mekanizmaları güçlüdür.", "AGIFORMER AI'nın geleceğidir."
     ] * 1000
     dataset = SimpleTextDataset(dummy_texts, max_seq_len=model_config['max_seq_len'], vocab_size=model_config['vocab_size'])
     train_size = int(train_split * len(dataset)); val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     return train_dataset, val_dataset, False
 
-# (main fonksiyonunun geri kalanı aynı)
-def main():
-    if 'PYTORCH_CUDA_ALLOC_CONF' not in os.environ:
-        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-        print("🔧 Set PYTORCH_CUDA_ALLOC_CONF for better memory management")
+@hydra.main(config_path="conf", config_name="config", version_base=None)
+def main(cfg: DictConfig) -> None:
+    """
+    Main training function with Hydra configuration management
+    """
+    # Set up logging
+    logging.basicConfig(level=getattr(logging, cfg.logging.console_level))
+    logger = logging.getLogger(__name__)
 
-    parser = argparse.ArgumentParser(description="AGIFORMER Training Script")
-    parser.add_argument("--config", type=str, default="configs/base_config.yaml")
-    args, unknown_args = parser.parse_known_args()
+    # Set random seed for reproducibility
+    if cfg.seed is not None:
+        torch.manual_seed(cfg.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(cfg.seed)
+            torch.cuda.manual_seed_all(cfg.seed)
 
-    with open(args.config, 'r') as f: config = yaml.safe_load(f)
+    # Set up hardware
+    if cfg.hardware.pytorch_cuda_alloc_conf:
+        if 'PYTORCH_CUDA_ALLOC_CONF' not in os.environ:
+            os.environ['PYTORCH_CUDA_ALLOC_CONF'] = cfg.hardware.pytorch_cuda_alloc_conf
+            logger.info("🔧 Set PYTORCH_CUDA_ALLOC_CONF for better memory management")
 
-    i = 0
-    while i < len(unknown_args):
-        arg, val_str = unknown_args[i].strip('--'), unknown_args[i+1]
-        try:
-            val = int(val_str) if '.' not in val_str else float(val_str)
-        except ValueError:
-            val = True if val_str.lower() == 'true' else False if val_str.lower() == 'false' else val_str
-        keys = arg.split('.'); d = config
-        for key in keys[:-1]: d = d.setdefault(key, {})
-        d[keys[-1]] = val
-        i += 2
+    # Determine device
+    if cfg.hardware.device == "auto":
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device(cfg.hardware.device)
 
-    print("Updated config:", json.dumps(config, indent=2))
-    model_config, train_config = config['model'], config['training']
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu'); print(f"Using device: {device}")
+    logger.info(f"Using device: {device}")
+    if torch.cuda.is_available():
+        logger.info(f"GPU: {torch.cuda.get_device_name()}")
+        logger.info(f"CUDA version: {torch.version.cuda}")
 
-    checkpoint_manager = CheckpointManager(checkpoint_dir="checkpoints")
-    metrics_logger = MetricsLogger(project_name="agiformer", experiment_name=config.get('experiment_name', 'agiformer_run'), config=config)
+    # Initialize Weights & Biases if enabled
+    if cfg.logging.use_wandb:
+        if WANDB_AVAILABLE:
+            wandb.init(
+                project=cfg.logging.wandb_project,
+                name=cfg.run_name,
+                config=OmegaConf.to_container(cfg, resolve=True),
+                tags=cfg.logging.wandb_tags,
+                notes=cfg.logging.wandb_notes
+            )
+            logger.info(f"Initialized W&B run: {cfg.run_name}")
+        else:
+            logger.warning("W&B requested but not available")
 
+    # Create output directory
+    output_dir = Path(cfg.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Output directory: {output_dir}")
+
+    # Initialize checkpoint manager
+    checkpoint_manager = CheckpointManager(
+        checkpoint_dir=str(output_dir / cfg.training.checkpoint_dir),
+        keep_last_n=cfg.training.keep_last_n_checkpoints
+    )
+
+    # Initialize metrics logger
+    metrics_logger = MetricsLogger(
+        project_name=cfg.logging.wandb_project if cfg.logging.use_wandb else "agiformer",
+        experiment_name=cfg.run_name,
+        config=OmegaConf.to_container(cfg, resolve=True)
+    )
+
+    # Load tokenizer
+    logger.info("Loading MorphoPiece tokenizer...")
+    tokenizer_path = getattr(cfg.model, 'tokenizer_path', 'tokenizer/morphopiece.model')
+    if os.path.exists(tokenizer_path):
+        tokenizer = MorphoPiece(tokenizer_path)
+        logger.info(f"Loaded tokenizer with vocab size: {tokenizer.vocab_size}")
+    else:
+        logger.warning(f"Tokenizer not found at {tokenizer_path}, using default configuration")
+        tokenizer = None
+
+    # Create model
+    logger.info("Creating AGIFORMER model...")
     model = AGIFORMER(
-        use_gradient_checkpointing=train_config.get('use_gradient_checkpointing', False),
-        **model_config
+        tokenizer=tokenizer,
+        use_gradient_checkpointing=cfg.training.use_gradient_checkpointing,
+        **{k: v for k, v in cfg.model.items() if k != 'tokenizer_path'}
     ).to(device)
 
+    # Log model information
     params = count_parameters(model)
-    print(f"\nModel Parameters: Total: {format_number(params['total'])}, Trainable: {format_number(params['trainable'])}")
+    logger.info(f"Model Parameters: Total: {format_number(params['total'])}, Trainable: {format_number(params['trainable'])}")
 
-    train_ds, val_ds, is_multimodal = create_dataset(config.get('data_dir'), config.get('data_path'), model_config, 0.9)
-    train_loader = DataLoader(train_ds, batch_size=train_config['batch_size'], shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_ds, batch_size=train_config['batch_size'], shuffle=False, num_workers=0)
+    # Create datasets
+    logger.info("Creating datasets...")
+    train_ds, val_ds, is_multimodal = create_dataset(
+        cfg.data.data_dir,
+        getattr(cfg.data, 'data_path', None),
+        OmegaConf.to_container(cfg.model),
+        cfg.data.train_split,
+        tokenizer
+    )
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
-    scheduler = WarmupScheduler(optimizer, warmup_steps=train_config['warmup_steps'], d_model=model_config['d_model'])
+    # Create data loaders
+    train_loader = torch.utils.data.DataLoader(
+        train_ds,
+        batch_size=cfg.training.batch_size,
+        shuffle=True,
+        num_workers=cfg.data.num_workers,
+        pin_memory=cfg.data.pin_memory,
+        persistent_workers=cfg.data.persistent_workers
+    )
+
+    val_loader = torch.utils.data.DataLoader(
+        val_ds,
+        batch_size=cfg.training.batch_size,
+        shuffle=False,
+        num_workers=cfg.data.num_workers,
+        pin_memory=cfg.data.pin_memory,
+        persistent_workers=cfg.data.persistent_workers
+    )
+
+    logger.info(f"Dataset: {len(train_ds)} train samples, {len(val_ds)} val samples")
+    logger.info(f"Multimodal: {is_multimodal}")
+
+    # Create optimizer
+    if cfg.training.optimizer.lower() == "adamw":
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=cfg.training.learning_rate,
+            weight_decay=cfg.training.weight_decay,
+            betas=(cfg.training.adam_beta1, cfg.training.adam_beta2),
+            eps=cfg.training.adam_epsilon
+        )
+    else:
+        raise ValueError(f"Unsupported optimizer: {cfg.training.optimizer}")
+
+    # Create scheduler
+    scheduler = WarmupScheduler(
+        optimizer,
+        warmup_steps=cfg.training.warmup_steps,
+        d_model=cfg.model.d_model
+    )
+
+    # Create loss criterion
     criterion = nn.CrossEntropyLoss(ignore_index=0)
 
-    start_step, best_val_loss = 0, float('inf')
-    print(f"\n🔥 Training Started! Batch size: {train_config['batch_size']}, LR: {train_config['learning_rate']}, AMP: {train_config['use_amp']}")
+    # Training loop
+    logger.info("🔥 Starting training...")
+    logger.info(f"Batch size: {cfg.training.batch_size}, LR: {cfg.training.learning_rate}, AMP: {cfg.training.use_amp}")
 
-    epochs = train_config.get('epochs', 10)
-    max_steps = train_config.get('max_steps')
+    best_val_loss = float('inf')
     global_step = 0
 
     try:
-        for epoch in range(epochs):
-            if max_steps and global_step >= max_steps:
-                print(f"Reached max_steps ({max_steps}). Stopping training.")
+        for epoch in range(cfg.training.epochs):
+            if cfg.training.max_steps and global_step >= cfg.training.max_steps:
+                logger.info(f"Reached max_steps ({cfg.training.max_steps}). Stopping training.")
                 break
 
-            print(f"\n📅 Epoch {epoch + 1}/{epochs}")
-            avg_loss, end_step = train_epoch(model, train_loader, optimizer, criterion, device, train_config['use_amp'], metrics_logger, global_step, is_multimodal)
+            logger.info(f"\n📅 Epoch {epoch + 1}/{cfg.training.epochs}")
+            avg_loss, end_step = train_epoch(
+                model, train_loader, optimizer, criterion, device,
+                cfg.training.use_amp, metrics_logger, global_step, is_multimodal
+            )
             global_step = end_step
 
-            val_loss = validate_epoch(model, val_loader, criterion, device, train_config['use_amp'], is_multimodal)
+            # Validation
+            val_loss = validate_epoch(model, val_loader, criterion, device, cfg.training.use_amp, is_multimodal)
             scheduler.step()
-            if metrics_logger: metrics_logger.log_validation_metrics(end_step, val_loss, {})
 
+            if metrics_logger:
+                metrics_logger.log_validation_metrics(end_step, val_loss, {})
+
+            # Save checkpoint
             is_best = val_loss < best_val_loss
-            if is_best: best_val_loss = val_loss
-            checkpoint_manager.save_checkpoint(end_step, model, optimizer, scheduler, {'val_loss': val_loss}, is_best)
+            if is_best:
+                best_val_loss = val_loss
 
-            print(f"Epoch {epoch + 1} completed: Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
+            checkpoint_manager.save_checkpoint(
+                end_step, model, optimizer, scheduler,
+                {'val_loss': val_loss, 'epoch': epoch}, is_best
+            )
+
+            logger.info(f"Epoch {epoch + 1} completed: Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
 
     except KeyboardInterrupt:
-        print("\nTraining interrupted by user.")
+        logger.info("\nTraining interrupted by user.")
+    except Exception as e:
+        logger.error(f"Training failed with error: {e}")
+        raise
     finally:
-        if metrics_logger: metrics_logger.finish()
-        print(f"\nTraining completed! Best validation loss: {best_val_loss:.4f}")
+        if metrics_logger:
+            metrics_logger.finish()
+        logger.info(f"\nTraining completed! Best validation loss: {best_val_loss:.4f}")
+
+        # Save final config
+        final_config_path = output_dir / "final_config.yaml"
+        with open(final_config_path, 'w') as f:
+            OmegaConf.save(cfg, f)
+        logger.info(f"Final config saved to: {final_config_path}")
+
 
 if __name__ == "__main__":
     main()

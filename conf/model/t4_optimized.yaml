@@ -1,0 +1,28 @@
+# @package _group_
+
+# AGIFORMER T4 GPU Optimized Model Configuration
+# Reduced parameters for T4 GPU training
+
+# Architecture - T4 Optimized
+vocab_size: 256
+d_model: 384  # Reduced from 512
+n_layers: 6   # Reduced from 8
+n_heads: 6    # Reduced from 8
+d_ff: 1536    # Reduced from 2048
+
+# Mixture of Experts - T4 Optimized
+n_experts: 2  # Reduced from 4
+expert_types: ["language", "logic"]
+
+# Memory System - T4 Optimized
+memory_size: 1000
+max_seq_len: 256  # Reduced from 512
+
+# Features - Selective for T4
+use_linear_attention: false
+use_memory: true
+use_introspection: false  # Disabled for T4
+use_multimodal: false     # Disabled for T4
+
+# Regularization
+dropout: 0.1
