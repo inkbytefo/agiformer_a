@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from typing import Optional, Tuple, List
+from agiformer.language.morpho_splitter import RegexSplitter as MorphoSplitter
 from agiformer.language.morpho_splitter import MorphoSplitter
 
 class AgglutinativeAttention(nn.Module):
