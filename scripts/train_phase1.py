@@ -57,8 +57,15 @@ class TurkishTextDataset(Dataset):
         
         # Load and cache texts
         logger.info(f"Loading corpus from: {self.corpus_file}")
+        self.texts = []
         with open(self.corpus_file, 'r', encoding='utf-8') as f:
-            self.texts = [line.strip() for line in f if line.strip()]
+            for line in f:
+                if line.strip():
+                    try:
+                        self.texts.append(json.loads(line)['text'])
+                    except (json.JSONDecodeError, KeyError):
+                        # Fallback for plain text lines
+                        self.texts.append(line.strip())
         
         logger.info(f"Loaded {len(self.texts)} texts from corpus")
     
