@@ -69,24 +69,36 @@ def main():
     print(f"   Input: {args.input}")
     print(f"   Output: {args.output}")
 
+    # Get total line count for tqdm progress bar without loading the whole file
+    print("Counting lines in input file...")
+    with open(args.input, 'r', encoding='utf-8') as f:
+        total_lines = sum(1 for _ in f)
+
     with open(args.input, 'r', encoding='utf-8') as f_in, \
          open(args.output, 'w', encoding='utf-8') as f_out, \
          mp.Pool(processes=num_workers, initializer=init_worker) as pool:
+
+        # Process the file in chunks using a generator to avoid loading all lines into memory
+        def chunk_generator(file, size):
+            chunk = []
+            for line in file:
+                chunk.append(line)
+                if len(chunk) == size:
+                    yield chunk
+                    chunk = []
+            if chunk:
+                yield chunk
+
+        results_iterator = pool.imap_unordered(process_chunk, chunk_generator(f_in, args.chunksize))
         
-        lines = f_in.readlines()
-        total_lines = len(lines)
+        progress_bar = tqdm(total=total_lines, desc="Parallel Preprocessing", unit="lines")
         
-        # Veriyi parçalara ayır ve havuzda işle
-        # `imap_unordered` sonuçları geldikçe işler, bu da bellek kullanımını azaltır
-        # ve ilerlemeyi daha iyi gösterir.
-        results_iterator = pool.imap_unordered(process_chunk, [lines[i:i + args.chunksize] for i in range(0, total_lines, args.chunksize)])
-        
-        progress_bar = tqdm(total=total_lines, desc="Parallel Preprocessing")
-        
+        lines_processed = 0
         for processed_chunk in results_iterator:
-            for line in processed_chunk:
-                f_out.write(line + '\n')
-            progress_bar.update(len(processed_chunk)) # Gerçek işlenen satır sayısı kadar güncelle
+            if processed_chunk:
+                f_out.write('\n'.join(processed_chunk) + '\n')
+                lines_processed += len(processed_chunk)
+                progress_bar.update(len(processed_chunk))
             
     progress_bar.close()
     print("\n✅ Parallel preprocessing complete!")
