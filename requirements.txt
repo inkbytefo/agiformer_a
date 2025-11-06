@@ -52,4 +52,3 @@ zeyrek
 sentencepiece>=0.1.99
 
 # Turkish Morphological Analysis (regex-based fallback used)
- zemberek-python>=0.2.3  # Commented out due to dependency conflicts
