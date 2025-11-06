@@ -25,7 +25,7 @@ import sentencepiece as spm
 
 # Morphological analysis
 # Path correction above should fix this import
-from agiformer.language.morpho_splitter import MorphoSplitter
+from agiformer.language.morpho_splitter import RegexSplitter
 
 # Data collection imports
 try:
@@ -443,16 +443,16 @@ def main():
 
     # Initialize morphological splitter (may be None if import failed)
     morpho_splitter = None
-    if MorphoSplitter is not None:
+    if RegexSplitter is not None:
         try:
-            morpho_splitter = MorphoSplitter()
-            print("✅ MorphoSplitter initialized successfully")
+            morpho_splitter = RegexSplitter()
+            print("✅ RegexSplitter initialized successfully")
         except Exception as e:
-            print(f"⚠️  Failed to initialize MorphoSplitter: {e}")
+            print(f"⚠️  Failed to initialize RegexSplitter: {e}")
             print("   Continuing with basic tokenization...")
             morpho_splitter = None
     else:
-        print("⚠️  MorphoSplitter not available, using basic tokenization")
+        print("⚠️  RegexSplitter not available, using basic tokenization")
         morpho_splitter = None
 
     print("")
