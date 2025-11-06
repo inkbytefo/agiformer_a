@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
 # Developer: inkbytefo
+# Modified: 2025-11-06
+#!/usr/bin/env python3
 # AI: Claude Sonnet 4.5
 # Modified: 2025-11-01
 
@@ -15,8 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from typing import Optional, Tuple, List
-from agiformer.language.morpho_splitter import RegexSplitter as MorphoSplitter
-from agiformer.language.morpho_splitter import RegexSplitter as MorphoSplitter
+from .morpho_splitter import RegexSplitter as MorphoSplitter
 
 class AgglutinativeAttention(nn.Module):
     """Türkçe eklemeli yapıya özel attention mekanizması"""

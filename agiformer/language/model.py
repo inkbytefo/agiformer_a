@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
 # Developer: inkbytefo
+# Modified: 2025-11-06
+#!/usr/bin/env python3
 # AI: QuantumSoul-Engineer-v1
 # Modified: 2024-12-19
 
@@ -18,9 +19,9 @@ import math
 from dataclasses import dataclass
 
 from agiformer.core.base_components import FeedForward
-from agiformer.language.attention import AgglutinativeAttention
-from agiformer.language.grammar_engine import GrammarEngine
-from agiformer.language.morpho_splitter import RegexSplitter as MorphoSplitter
+from .attention import AgglutinativeAttention
+from .grammar_engine import GrammarEngine
+from .morpho_splitter import RegexSplitter as MorphoSplitter
 
 @dataclass
 class ModelConfig:
