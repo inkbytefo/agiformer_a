@@ -43,6 +43,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Enable anomaly detection for debugging gradient issues
+torch.autograd.set_detect_anomaly(True)
+
 
 class TurkishTextDataset(Dataset):
     """Dataset for Turkish text corpus with simple character-level encoding"""
@@ -139,7 +142,7 @@ class Phase1Trainer:
         
         return model
     
-    def train_epoch(self, model, dataloader, optimizer, criterion, epoch: int) -> float:
+    def train_epoch(self, model, dataloader, optimizer, criterion, epoch: int, current_step: int, max_steps: Optional[int] = None) -> Tuple[float, int]:
         """Train for one epoch"""
         model.train()
         total_loss = 0
@@ -147,6 +150,10 @@ class Phase1Trainer:
         progress_bar = tqdm(dataloader, desc=f"Training Epoch {epoch}")
         
         for batch_idx, batch in enumerate(progress_bar):
+            if max_steps and current_step >= max_steps:
+                logger.info(f"Reached max_steps ({max_steps}), stopping training for this epoch.")
+                break
+
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
             
@@ -171,15 +178,17 @@ class Phase1Trainer:
                 optimizer.step()
             
             total_loss += loss.item()
+            current_step += 1
             
             # Update progress bar
-            progress_bar.set_postfix({'loss': f'{loss.item():.4f}'})
+            progress_bar.set_postfix({'loss': f'{loss.item():.4f}', 'step': current_step})
             
             # Log every 100 batches
             if batch_idx % 100 == 0:
-                logger.info(f"Epoch {epoch}, Batch {batch_idx}, Loss: {loss.item():.4f}")
+                logger.info(f"Epoch {epoch}, Batch {batch_idx}, Step: {current_step}, Loss: {loss.item():.4f}")
         
-        return total_loss / len(dataloader)
+        processed_batches = batch_idx + 1 if 'batch_idx' in locals() and batch_idx is not None else 1
+        return total_loss / processed_batches, current_step
     
     def validate(self, model, dataloader, criterion) -> Tuple[float, float]:
         """Validate model and return loss and perplexity"""
@@ -263,7 +272,8 @@ class Phase1Trainer:
         batch_size: int = 32,
         learning_rate: float = 1e-4,
         save_every: int = 5,
-        val_every: int = 1
+        val_every: int = 1,
+        max_steps: Optional[int] = None
     ) -> Dict:
         """Main training function"""
         logger.info(f"Starting training: {self.experiment_name}")
@@ -305,8 +315,21 @@ class Phase1Trainer:
             epoch_start = time.time()
             
             # Training
-            train_loss = self.train_epoch(model, train_loader, optimizer, criterion, epoch + 1)
+            train_loss, global_step = self.train_epoch(model, train_loader, optimizer, criterion, epoch + 1, global_step, max_steps)
             
+            # Check if max_steps reached
+            if max_steps and global_step >= max_steps:
+                logger.info(f"Max steps ({max_steps}) reached. Finalizing training.")
+                # Perform a final validation
+                val_loss, val_perplexity = self.validate(model, val_loader, criterion)
+                logger.info(f"Final Val Loss: {val_loss:.4f}, Final Val Perplexity: {val_perplexity:.4f}")
+                self.training_history['val_losses'].append(val_loss)
+                self.training_history['val_perplexities'].append(val_perplexity)
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_val_perplexity = val_perplexity
+                break # Exit epoch loop
+
             # Validation
             if epoch % val_every == 0:
                 val_loss, val_perplexity = self.validate(model, val_loader, criterion)
@@ -339,7 +362,7 @@ class Phase1Trainer:
                     })
             
             scheduler.step()
-            global_step += len(train_loader)
+            # global_step is now updated inside train_epoch
         
         # Final metrics
         final_metrics = {
@@ -410,6 +433,7 @@ Examples:
     parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
     parser.add_argument('--max_seq_len', type=int, default=512, help='Maximum sequence length')
     parser.add_argument('--train_split', type=float, default=0.9, help='Train/validation split ratio')
+    parser.add_argument('--max_steps', type=int, default=None, help='Maximum number of training steps')
     parser.add_argument('--resume', type=str, help='Resume from checkpoint path')
     parser.add_argument('--dry_run', action='store_true', help='Test configuration without training')
     
@@ -460,7 +484,8 @@ Examples:
             val_dataset=val_dataset,
             num_epochs=args.epochs,
             batch_size=args.batch_size,
-            learning_rate=args.lr
+            learning_rate=args.lr,
+            max_steps=args.max_steps
         )
         
         print("\n" + "="*60)
