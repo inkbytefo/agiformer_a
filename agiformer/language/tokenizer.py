@@ -16,7 +16,6 @@ import os
 from typing import List, Dict, Optional
 import json
 import re
-from .morpho_splitter import MorphoSplitter
 
 class MorphoPiece:
     """Türkçe morfoloji farkındalıklı tokenizer"""

@@ -14,16 +14,16 @@ import os
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from agiformer.language.morpho_splitter import ZeyrekSplitter
+from agiformer.language.morpho_splitter import RegexSplitter
 
-# Global ZeyrekSplitter nesnesi (her bir alt işlemde bir kez başlatılacak)
+# Global RegexSplitter nesnesi (her bir alt işlemde bir kez başlatılacak)
 splitter = None
 
 def init_worker():
-    """Her bir alt işlem (worker) için ZeyrekSplitter'ı başlatır."""
+    """Her bir alt işlem (worker) için RegexSplitter'ı başlatır."""
     global splitter
-    print(f"Initializing ZeyrekSplitter for process {os.getpid()}...")
-    splitter = ZeyrekSplitter()
+    print(f"Initializing RegexSplitter for process {os.getpid()}...")
+    splitter = RegexSplitter()
 
 def process_chunk(lines: list[str]) -> list[str]:
     """
