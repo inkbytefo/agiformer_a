@@ -14,16 +14,16 @@ import os
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from agiformer.language.morpho_splitter import VnlpSplitter
+from agiformer.language.morpho_splitter import ZeyrekSplitter
 
-# Global VnlpSplitter nesnesi (her bir alt işlemde bir kez başlatılacak)
+# Global ZeyrekSplitter nesnesi (her bir alt işlemde bir kez başlatılacak)
 splitter = None
 
 def init_worker():
-    """Her bir alt işlem (worker) için VnlpSplitter'ı başlatır."""
+    """Her bir alt işlem (worker) için ZeyrekSplitter'ı başlatır."""
     global splitter
-    print(f"Initializing VnlpSplitter for process {os.getpid()}...")
-    splitter = VnlpSplitter()
+    print(f"Initializing ZeyrekSplitter for process {os.getpid()}...")
+    splitter = ZeyrekSplitter()
 
 def process_chunk(lines: list[str]) -> list[str]:
     """

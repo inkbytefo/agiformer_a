@@ -4,35 +4,37 @@
 # Modified: 2025-11-06
 
 import logging
-from vngrs_nlp.morphology import VngrsMorphology
+import zeyrek
 
 logger = logging.getLogger(__name__)
 
-class VnlpSplitter:
+class ZeyrekSplitter:
     """
-    A wrapper for the VNLP morphological analyzer to provide a consistent
-    interface for splitting sentences into their morphemes (roots and suffixes).
-    This class replaces the previous Zemberek-based implementation for better
-    performance and modern features.
+    A wrapper for the Zeyrek morphological analyzer. This class replaces
+    the previous implementations to provide a lightweight and performant
+    alternative for Turkish morphological analysis, avoiding heavy dependencies
+    like TensorFlow.
     """
     _instance = None
 
     def __new__(cls):
         if cls._instance is None:
-            logger.info("Initializing VnlpSplitter singleton...")
-            cls._instance = super(VnlpSplitter, cls).__new__(cls)
+            logger.info("Initializing ZeyrekSplitter singleton...")
+            cls._instance = super(ZeyrekSplitter, cls).__new__(cls)
             try:
-                cls._instance.analyzer = VngrsMorphology()
-                logger.info("VngrsMorphology instance created successfully.")
+                # Zeyrek's MorphAnalyzer is lightweight and initializes quickly.
+                cls._instance.analyzer = zeyrek.MorphAnalyzer()
+                logger.info("Zeyrek.MorphAnalyzer instance created successfully.")
             except Exception as e:
-                logger.error(f"Failed to initialize VngrsMorphology: {e}", exc_info=True)
+                logger.error(f"Failed to initialize Zeyrek.MorphAnalyzer: {e}", exc_info=True)
                 cls._instance = None
                 raise
         return cls._instance
 
     def split_sentence(self, sentence: str) -> dict:
         """
-        Analyzes a sentence and splits each word into its root and morphemes.
+        Analyzes a sentence and splits each word into its root and morphemes
+        using Zeyrek.
 
         Args:
             sentence: The input sentence string.
@@ -42,22 +44,23 @@ class VnlpSplitter:
             compatibility with the preprocessing scripts.
         """
         if not hasattr(self, 'analyzer'):
-            raise RuntimeError("VnlpSplitter is not properly initialized.")
+            raise RuntimeError("ZeyrekSplitter is not properly initialized.")
 
-        analysis_results = self.analyzer.analyze(sentence)
-        
+        # Zeyrek analyzes word by word.
+        words = sentence.split()
         output = {"kelimeler": []}
-        
-        for word_analysis in analysis_results:
-            # The first analysis is usually the most likely one
-            best_analysis = word_analysis[0] if word_analysis else None
+
+        for word in words:
+            # Perform analysis for the word
+            analysis_results = self.analyzer.analyze(word)
             
+            # The first result is typically the most probable one.
+            best_analysis = analysis_results[0][0] if analysis_results and analysis_results[0] else None
+
             if best_analysis:
-                root = best_analysis.get_root()
-                morphemes = best_analysis.get_morphemes()
-                
-                # VNLP provides morphemes including the root, so we extract suffixes
-                suffixes = [m for m in morphemes if m != root]
+                root = best_analysis.lemma
+                # Get morphemes, excluding the root itself.
+                suffixes = [m for m in best_analysis.morphemes if m != root and m != 'Unk']
                 
                 word_dict = {
                     "kök": root,
@@ -65,10 +68,9 @@ class VnlpSplitter:
                 }
                 output["kelimeler"].append(word_dict)
             else:
-                # If no analysis, treat the word as its own root
-                # This handles punctuation, numbers, or unknown words gracefully
+                # If no analysis, treat the word as its own root.
                 output["kelimeler"].append({
-                    "kök": word_analysis.get_surface() if hasattr(word_analysis, 'get_surface') else "",
+                    "kök": word,
                     "ekler": []
                 })
                 
