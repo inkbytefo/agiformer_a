@@ -47,8 +47,154 @@ logger = logging.getLogger(__name__)
 torch.autograd.set_detect_anomaly(True)
 
 
+class TextDataset(Dataset):
+    """Flexible dataset supporting both .jsonl and .txt formats with morphological analysis"""
+    
+    def __init__(self, file_path: str, tokenizer, max_seq_len: int = 512, use_morpho: bool = True):
+        self.file_path = Path(file_path)
+        self.tokenizer = tokenizer
+        self.max_seq_len = max_seq_len
+        self.use_morpho = use_morpho
+        
+        # Load and cache texts
+        logger.info(f"Loading corpus from: {self.file_path}")
+        self.texts = []
+        self.morpho_types = []
+        
+        if self.file_path.suffix == '.jsonl':
+            self._load_jsonl()
+        elif self.file_path.suffix == '.txt':
+            self._load_txt()
+        else:
+            raise ValueError(f"Unsupported file format: {self.file_path.suffix}")
+        
+        logger.info(f"Loaded {len(self.texts)} texts from corpus")
+    
+    def _load_jsonl(self):
+        """Load from .jsonl format"""
+        with open(self.file_path, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                if line.strip():
+                    try:
+                        data = json.loads(line)
+                        if 'text' in data:
+                            text = data['text']
+                            self.texts.append(text)
+                            # Extract morpho_types if available
+                            if 'morpho_types' in data and self.use_morpho:
+                                self.morpho_types.append(data['morpho_types'])
+                            elif self.use_morpho:
+                                self.morpho_types.append(None)
+                        else:
+                            logger.warning(f"Line {line_num} missing 'text' field, skipping")
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Line {line_num} not valid JSON, trying as text: {e}")
+                        self.texts.append(line.strip())
+                        if self.use_morpho:
+                            self.morpho_types.append(None)
+    
+    def _load_txt(self):
+        """Load from .txt format (one text per line)"""
+        from agiformer.language.morpho_splitter import MorphoSplitter
+        
+        morpho_splitter = None
+        if self.use_morpho:
+            morpho_splitter = MorphoSplitter()
+        
+        with open(self.file_path, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                if line.strip():
+                    text = line.strip()
+                    self.texts.append(text)
+                    
+                    if self.use_morpho:
+                        # Generate morpho_types on-the-fly using MorphoSplitter
+                        try:
+                            words = text.split()
+                            morpho_types = []
+                            for word in words:
+                                # Use MorphoSplitter to analyze each word
+                                analysis = morpho_splitter.split_word(word)
+                                # Get morphological types for each morpheme
+                                for morfem in analysis['morfemler']:
+                                    morpho_types.append(self._get_morpho_type(morfem['morfem'], morfem['tür']))
+                            self.morpho_types.append(morpho_types)
+                        except Exception as e:
+                            logger.warning(f"Failed to analyze morphology for line {line_num}: {e}")
+                            self.morpho_types.append(None)
+    
+    def _get_morpho_type(self, morpheme: str, morfem_tur: str) -> int:
+        """Map morphological analysis to integer types for model input"""
+        # Map Turkish morphological types to integer codes for model input
+        type_mapping = {
+            'kök': 0,           # stem/root
+            'belirtme': 1,      # accusative
+            'yönelme': 2,       # dative
+            'bulunma': 3,       # locative
+            'ayrılma': 4,       # ablative
+            'ilgi': 5,          # genitive
+            'iyelik_1tekil': 6, # 1st person singular
+            'iyelik_2tekil': 7, # 2nd person singular
+            'iyelik_3tekil': 8, # 3rd person singular
+            'iyelik_1çoğul': 9, # 1st person plural
+            'iyelik_2çoğul': 10, # 2nd person plural
+            'iyelik_3çoğul': 11, # 3rd person plural
+            'çoğul': 12,        # plural
+            'şimdiki_zaman': 13, # progressive
+            'geçmiş_zaman': 14,  # past tense
+            'gelecek_zaman': 15, # future
+            'şart': 16,         # conditional
+            'emir': 17,         # imperative
+            'mastar': 18,       # infinitive
+            'olumsuz': 19,      # negative
+            'ek': 20            # general suffix
+        }
+        
+        return type_mapping.get(morfem_tur, 0)  # Default to stem (0) if unknown
+    
+    def __len__(self):
+        return len(self.texts)
+    
+    def __getitem__(self, idx):
+        text = self.texts[idx]
+        
+        # Tokenize text using the tokenizer
+        token_ids = self.tokenizer.encode(text, out_type=int)
+        
+        # Truncate if needed
+        if len(token_ids) > self.max_seq_len:
+            token_ids = token_ids[:self.max_seq_len]
+        
+        # Create input-target pairs (causal language modeling)
+        input_ids = token_ids[:-1]
+        target_ids = token_ids[1:]
+        
+        # Add padding
+        pad_len = self.max_seq_len - len(input_ids)
+        if pad_len > 0:
+            input_ids += [self.tokenizer.pad_id()] * pad_len
+            target_ids += [self.tokenizer.pad_id()] * pad_len
+        
+        # Create attention mask
+        attention_mask = (torch.tensor(input_ids, dtype=torch.long) != self.tokenizer.pad_id()).long()
+        
+        result = {
+            'input_ids': torch.tensor(input_ids, dtype=torch.long),
+            'target_ids': torch.tensor(target_ids, dtype=torch.long),
+            'attention_mask': attention_mask,
+            'text': text
+        }
+        
+        # Add morpho_types if available and needed
+        if self.use_morpho and idx < len(self.morpho_types) and self.morpho_types[idx] is not None:
+            result['morpho_types'] = torch.tensor(self.morpho_types[idx][:self.max_seq_len-1], dtype=torch.long)
+        
+        return result
+
+
+# Legacy class for backward compatibility
 class TurkishTextDataset(Dataset):
-    """Dataset for Turkish text corpus with simple character-level encoding"""
+    """Dataset for Turkish text corpus with simple character-level encoding (legacy)"""
     
     def __init__(self, corpus_file: str, max_seq_len: int = 512, vocab_size: int = 32000):
         self.corpus_file = Path(corpus_file)
@@ -394,12 +540,12 @@ def load_config(config_path: str) -> Dict:
     return config
 
 
-def create_datasets(data_path: str, max_seq_len: int = 512, train_split: float = 0.9) -> Tuple[Dataset, Dataset]:
-    """Create train/val datasets from corpus file"""
+def create_datasets(data_path: str, tokenizer, max_seq_len: int = 512, train_split: float = 0.9, use_morpho: bool = True) -> Tuple[Dataset, Dataset]:
+    """Create train/val datasets from corpus file with flexible format support"""
     from torch.utils.data import random_split
     
-    # Create full dataset
-    full_dataset = TurkishTextDataset(data_path, max_seq_len=max_seq_len)
+    # Create full dataset with proper tokenizer and morphological analysis support
+    full_dataset = TextDataset(data_path, tokenizer, max_seq_len=max_seq_len, use_morpho=use_morpho)
     
     # Split into train/val
     total_size = len(full_dataset)
@@ -458,8 +604,15 @@ Examples:
     
     logger.info(f"Configuration loaded: {config}")
     
-    # Create datasets
-    train_dataset, val_dataset = create_datasets(args.data, args.max_seq_len, args.train_split)
+    # Initialize tokenizer for dataset creation
+    tokenizer = MorphoPiece()
+    tokenizer.vocab_size = config.get('vocab_size', 32000)
+    
+    # Create datasets with flexible format support
+    use_morpho = config.get('morphological_analysis', True)
+    train_dataset, val_dataset = create_datasets(
+        args.data, tokenizer, args.max_seq_len, args.train_split, use_morpho
+    )
     
     if args.dry_run:
         logger.info("Dry run - testing configuration only")
