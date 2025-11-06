@@ -1,26 +1,37 @@
+# Developer: inkbytefo
+# Modified: 2025-11-06
+
+# @package _group_
+
 # AGIFORMER Base Model Configuration
-# Common architectural settings shared across all model variants
+# Default model architecture settings
 
 # Architecture
-vocab_size: 256
 d_model: 512
 n_layers: 8
 n_heads: 8
 d_ff: 2048
+vocab_size: 32000
 
 # Mixture of Experts
-n_experts: 2
-expert_types: ["language", "neuro_symbolic"]
+n_experts: 4
+expert_types: ["language", "knowledge", "spatial", "logic"]
 
-# Memory System
+# Memory and Sequence
 memory_size: 1000
 max_seq_len: 512
 
 # Regularization
 dropout: 0.1
 
-# Feature flags - Override in variant configs
+# Feature Flags
 use_linear_attention: false
-use_memory: false
-use_introspection: false
+use_memory: true
+use_introspection: true
 use_multimodal: false
+use_agglutinative_attention: true
+use_gradient_checkpointing: false
+
+# Language-specific settings
+morphological_analysis: true
+tokenizer_path: tokenizer/morphopiece.model

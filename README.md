@@ -196,14 +196,41 @@ print(f"Uzman kullanımı: {info['blocks'][0]['moe']['router_info']['expert_usag
 ### Eğitim
 
 ```python
-# Eğitim script'i
-python train.py \
-    --config configs/base_config.yaml \
-    --batch_size 16 \
-    --learning_rate 1e-4
+# Yeni birleştirilmiş eğitim script'i - Hydra konfigürasyonu ile
+python train.py experiment=phase1_lite hardware=t4_gpu
 
-# Veya özel
-python examples/training_example.py
+# Farklı deneyler
+python train.py experiment=phase1_baseline hardware=default_gpu
+python train.py experiment=phase1_lite hardware=cpu
+
+# Özel veri ile eğitim
+python train.py experiment=phase1_lite hardware=t4_gpu data.data_path=turkish_dataset.jsonl
+
+# Mevcut konfigürasyonları görüntüle
+python train.py --help
+```
+
+#### Konfigürasyon Yapısı
+
+Yeni konfigürasyon sistemi üç ana kategoriye ayrılmıştır:
+
+- **`conf/experiment/`**: Deney spesifik ayarlar (phase1_lite, phase1_baseline)
+- **`conf/hardware/`**: Donanım optimizasyonları (cpu, t4_gpu, default_gpu)
+- **`conf/base/`**: Temel model ve eğitim ayarları
+
+#### Örnek Konfigürasyonlar
+
+```yaml
+# conf/experiment/phase1_lite.yaml
+d_model: 512
+n_layers: 6
+use_agglutinative_attention: true
+morphological_analysis: true
+
+# conf/hardware/t4_gpu.yaml
+device: cuda
+batch_size: 16
+use_amp: true
 ```
 
 ## 🧪 Testler
@@ -329,18 +356,34 @@ agiformer/
 │   ├── introspection/        # İç gözlem sistemi
 │   │   ├── self_model.py    # Self-model gözlemi
 │   │   └── meta_learning.py # Meta-öğrenme
-│   ├── datasets/             # Veri seti yönetimi
+│   ├── data/                 # Birleştirilmiş veri işleme modülü
+│   │   └── dataset.py        # Tüm dataset sınıfları (TurkishTextDataset, TextDataset, vb.)
+│   ├── datasets/             # Multimodal veri setleri
 │   │   ├── base_dataset.py   # Temel dataset sınıfı
 │   │   └── cc_datasets.py    # Common Crawl veri işleme
 │   ├── __init__.py
 │   ├── model.py              # AGIFORMER ana model
 │   ├── data_quality.py       # Veri kalitesi kontrolü
 │   └── utils.py              # Yardımcı fonksiyonlar
-├── conf/                     # Konfigürasyon dosyaları
-│   ├── model/               # Model konfigürasyonları
-│   ├── training/            # Eğitim ayarları
-│   ├── hardware/            # Donanım optimizasyonu
-│   └── logging/             # Log ayarları
+├── conf/                     # Yeni konfigürasyon yapısı
+│   ├── config.yaml           # Ana konfigürasyon girişi
+│   ├── base/                 # Temel ayarlar
+│   │   ├── model.yaml        # Temel model mimarisi
+│   │   └── training.yaml     # Temel eğitim ayarları
+│   ├── experiment/           # Deney spesifik konfigürasyonlar
+│   │   ├── phase1_lite.yaml  # Hafif model deneyi
+│   │   └── phase1_baseline.yaml # Karşılaştırma deneyi
+│   ├── hardware/             # Donanım optimizasyonları
+│   │   ├── cpu.yaml          # CPU optimizasyonu
+│   │   ├── t4_gpu.yaml       # T4 GPU optimizasyonu
+│   │   └── default_gpu.yaml  # Varsayılan GPU ayarları
+│   ├── logging/              # Log ayarları
+│   └── model/                # Eski model konfigürasyonları (arşiv)
+├── archive/                  # Arşivlenmiş eski script'ler
+│   ├── train_phase1.py       # Eski Phase 1 eğitim script'i
+│   ├── training_example.py   # Eski eğitim örneği
+│   ├── quick_test.py         # Eski test script'i
+│   └── old_train_backup.py    # Eski train.py yedeği
 ├── examples/                 # Kullanım örnekleri
 ├── scripts/                  # Yardımcı script'ler
 │   ├── analyze_data_quality.py
@@ -348,10 +391,9 @@ agiformer/
 │   ├── download_real_datasets.py
 │   ├── prepare_cc12m.py
 │   ├── preprocess_language_data.py
-│   ├── train_tokenizer.py
-│   └── test_*.py             # Performans testleri
+│   └── train_tokenizer.py
 ├── tests/                    # Testler
-└── train.py                  # Eğitim script'i
+└── train.py                  # Yeni birleştirilmiş eğitim script'i
 ```
 
 ## 🤝 Katkı

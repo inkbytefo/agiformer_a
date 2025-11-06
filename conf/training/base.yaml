@@ -1,7 +1,10 @@
+# Developer: inkbytefo
+# Modified: 2025-11-06
+
 # @package _group_
 
 # AGIFORMER Base Training Configuration
-# Default training settings for AGIFORMER
+# Default training settings
 
 # Batch and Epochs
 batch_size: 8

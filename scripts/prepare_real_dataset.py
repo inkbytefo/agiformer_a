@@ -4,27 +4,21 @@
 #!/usr/bin/env python3
 """
 Turkish Text Corpus Preparation for AGIFORMER Phase 1
-Downloads and prepares a large-scale Turkish text corpus for benchmarking experiments
-Supports OSCAR, C4, and other common language model training corpora
+Downloads and prepares high-quality Turkish text corpus using HuggingFace Datasets
+Supports FineWiki Turkish and other HuggingFace datasets
 """
 
 import os
 import sys
 import json
-import requests
 import argparse
 import hashlib
-import gzip
-import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import time
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import re
-import zlib
-from urllib.parse import urlparse
 
 # Add parent directory to path to import agiformer
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -40,11 +34,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Try to import datasets library
+try:
+    from datasets import load_dataset, DatasetDict
+    DATASETS_AVAILABLE = True
+    logger.info("Datasets library available")
+except ImportError:
+    DATASETS_AVAILABLE = False
+    logger.warning("Datasets library not available. Install with: pip install datasets")
+
 
 class TurkishTextCorpus:
     """
     Handles downloading, cleaning, and preparing Turkish text corpus
-    for AGIFORMER Phase 1 experiments
+    for AGIFORMER Phase 1 experiments using HuggingFace Datasets
     """
 
     def __init__(self, output_dir: str, target_size_gb: float = 1.0):
@@ -52,29 +55,42 @@ class TurkishTextCorpus:
         self.target_size_gb = target_size_gb
         self.target_size_bytes = target_size_gb * 1024 * 1024 * 1024
         
-        # Supported datasets
-        self.dataset_urls = {
-            'wikipedia_oscar_turkish': {
-                'name': 'Wikipedia OSCAR Turkish',
-                'urls': [
-                    'https://huggingface.co/datasets/musabg/wikipedia-oscar-tr/resolve/main/data/ wikipedia-oscar-tr.1mb.jsonl'
-                ],
-                'expected_size_gb': 1.0,
-                'description': 'Turkish Wikipedia corpus from OSCAR dataset'
+        # Supported datasets from HuggingFace Hub
+        self.dataset_configs = {
+            'finewiki_turkish': {
+                'name': 'FineWiki Turkish',
+                'dataset_path': 'HuggingFaceFW/finewiki',
+                'language': 'tr',
+                'expected_size_gb': 2.5,
+                'description': 'High-quality Turkish Wikipedia articles from FineWiki',
+                'text_field': 'text',
+                'requires_login': False
             },
             'synthetic_turkish': {
                 'name': 'Synthetic Turkish Corpus',
-                'urls': [],
+                'dataset_path': None,
                 'expected_size_gb': 1.0,
-                'description': 'High-quality synthetic Turkish text for testing'
+                'description': 'High-quality synthetic Turkish text for testing',
+                'text_field': 'text',
+                'requires_login': False
             },
             'oscar_turkish': {
-                'name': 'OSCAR Turkish Subset',
-                'urls': [
-                    'https://huggingface.co/datasets/oscar-corpus/OSCAR_2201/resolve/main/splits/vi_mc4_ deduplicated.1GB.jsonl.gz',
-                ],
-                'expected_size_gb': 1.2,
-                'description': 'OSCAR corpus Turkish language subset'
+                'name': 'OSCAR Turkish',
+                'dataset_path': 'oscar-corpus/OSCAR_2201',
+                'language': 'tr',
+                'expected_size_gb': 3.0,
+                'description': 'OSCAR corpus Turkish language subset',
+                'text_field': 'text',
+                'requires_login': False
+            },
+            'mc4_turkish': {
+                'name': 'mC4 Turkish',
+                'dataset_path': 'mc4',
+                'language': 'tr',
+                'expected_size_gb': 15.0,
+                'description': 'Massive multilingual C4 corpus Turkish subset',
+                'text_field': 'text',
+                'requires_login': True
             }
         }
         
@@ -82,64 +98,10 @@ class TurkishTextCorpus:
         self.raw_dir = self.output_dir / "raw"
         self.cleaned_dir = self.output_dir / "cleaned"
         self.final_file = self.output_dir / "turkish_corpus_phase1.txt"
+        self.final_jsonl = self.output_dir / "turkish_corpus_phase1.jsonl"
         
         self.raw_dir.mkdir(exist_ok=True)
         self.cleaned_dir.mkdir(exist_ok=True)
-
-    def download_with_progress(self, url: str, output_path: Path, desc: str = "") -> bool:
-        """Download file with progress tracking and resume capability"""
-        try:
-            # Check if file already exists
-            if output_path.exists():
-                logger.info(f"File already exists: {output_path}")
-                return True
-
-            # Create temporary file for download
-            temp_path = output_path.with_suffix(output_path.suffix + '.tmp')
-            
-            # Get file size for resume capability
-            resume_header = {}
-            if temp_path.exists():
-                resume_header['Range'] = f'bytes={temp_path.stat().st_size}-'
-
-            logger.info(f"Downloading {url} to {output_path}")
-            
-            response = requests.get(url, headers=resume_header, stream=True, timeout=30)
-            response.raise_for_status()
-            
-            # Get total size
-            total_size = int(response.headers.get('content-length', 0))
-            if resume_header:
-                total_size += temp_path.stat().st_size
-            
-            # Download with progress
-            mode = 'ab' if resume_header else 'wb'
-            with open(temp_path, mode) as f, tqdm(
-                desc=desc,
-                total=total_size,
-                unit='B',
-                unit_scale=True,
-                unit_divisor=1024,
-            ) as pbar:
-                downloaded = temp_path.stat().st_size if temp_path.exists() else 0
-                pbar.update(downloaded)
-                
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        pbar.update(len(chunk))
-
-            # Move to final location
-            temp_path.rename(output_path)
-            logger.info(f"Download completed: {output_path}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Download failed for {url}: {e}")
-            if temp_path.exists():
-                temp_path.unlink()
-            return False
 
     def generate_synthetic_turkish_text(self, num_lines: int = 100000) -> List[str]:
         """Generate high-quality synthetic Turkish text for testing"""
@@ -195,6 +157,9 @@ class TurkishTextCorpus:
         """
         Advanced Turkish text cleaning
         """
+        if not isinstance(text, str):
+            return ""
+            
         # Remove null bytes and control characters
         text = text.replace('\x00', '').replace('\r', '\n')
         
@@ -240,129 +205,134 @@ class TurkishTextCorpus:
         
         # Basic Turkish character validation
         turkish_chars = set('abcçdefgğhıijklmnoöprsştuüvyzABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ')
-        if len([c for c in text if c in turkish_chars]) / len(text) < 0.5:
+        if len(text) > 0 and len([c for c in text if c in turkish_chars]) / len(text) < 0.3:
             return ""
         
         return text
 
-    def process_jsonl_file(self, file_path: Path) -> List[str]:
-        """Process JSONL file and extract text content"""
+    def load_huggingface_dataset(self, dataset_config: Dict) -> List[str]:
+        """Load dataset from 🤗 Hub"""
+        if not DATASETS_AVAILABLE:
+            raise ImportError("HuggingFace Datasets library not available. Install with: pip install datasets")
+        
+        logger.info(f"Loading dataset: {dataset_config['name']}")
+        logger.info(f"Path: {dataset_config['dataset_path']}")
+        
         texts = []
         
         try:
-            logger.info(f"Processing JSONL file: {file_path}")
-            
-            # Handle gzipped files
-            if file_path.suffix == '.gz':
-                opener = gzip.open
-                mode = 'rt'
+            # Load dataset with language configuration if specified
+            if 'language' in dataset_config:
+                # For multilingual datasets like mc4, oscar
+                dataset = load_dataset(
+                    dataset_config['dataset_path'],
+                    dataset_config['language'],
+                    split='train',
+                    trust_remote_code=True
+                )
             else:
-                opener = open
-                mode = 'r'
+                # For single language datasets
+                dataset = load_dataset(
+                    dataset_config['dataset_path'],
+                    split='train',
+                    trust_remote_code=True
+                )
             
-            with opener(file_path, mode, encoding='utf-8') as f:
-                for line_num, line in enumerate(f):
-                    if line_num % 10000 == 0:
-                        logger.info(f"Processed {line_num} lines...")
-                    
-                    try:
-                        # Try to parse as JSON
-                        data = json.loads(line)
-                        
-                        # Extract text based on common field names
-                        text = ""
-                        for field in ['text', 'content', 'sentence', 'document', 'article']:
-                            if field in data:
-                                text = str(data[field])
-                                break
-                        
-                        # Fallback: use first string field
-                        if not text:
-                            for key, value in data.items():
-                                if isinstance(value, str) and len(value) > 50:
-                                    text = value
-                                    break
-                        
-                        if text:
-                            cleaned = self.clean_turkish_text(text)
-                            if cleaned:
-                                texts.append(cleaned)
-                    
-                    except json.JSONDecodeError:
-                        # If not JSON, treat as plain text
-                        cleaned = self.clean_turkish_text(line)
-                        if cleaned:
-                            texts.append(cleaned)
-                    
-                    # Stop if we have enough text
-                    current_size = sum(len(t) for t in texts)
-                    if current_size > self.target_size_bytes:
-                        logger.info(f"Target size reached ({current_size / (1024*1024):.1f} MB)")
-                        break
-        
+            logger.info(f"Dataset loaded with {len(dataset)} examples")
+            
+            # Extract text content
+            text_field = dataset_config['text_field']
+            for example in tqdm(dataset, desc="Processing examples"):
+                if text_field in example:
+                    text = example[text_field]
+                    cleaned = self.clean_turkish_text(text)
+                    if cleaned:
+                        texts.append(cleaned)
+                
+                # Check if we've reached target size
+                current_size = sum(len(t) for t in texts)
+                if current_size > self.target_size_bytes:
+                    logger.info(f"Target size reached ({current_size / (1024*1024):.1f} MB)")
+                    break
+            
+            logger.info(f"Extracted {len(texts)} clean text examples")
+            
         except Exception as e:
-            logger.error(f"Error processing {file_path}: {e}")
+            logger.error(f"Error loading dataset {dataset_config['dataset_path']}: {e}")
+            raise
         
         return texts
 
-    def create_turkish_corpus(self, dataset_type: str = 'synthetic_turkish') -> str:
+    def create_turkish_corpus(self, dataset_type: str = 'finewiki_turkish', 
+                           output_format: str = 'txt') -> str:
         """Main function to create Turkish corpus"""
         logger.info(f"Creating Turkish corpus using {dataset_type}")
         logger.info(f"Target size: {self.target_size_gb} GB")
+        logger.info(f"Output format: {output_format}")
         
         texts = []
-        total_size = 0
         
         if dataset_type == 'synthetic_turkish':
             # Generate synthetic Turkish text
-            sentences = self.generate_synthetic_turkish_text(200000)  # Generate lots of text
+            sentences = self.generate_synthetic_turkish_text(200000)
             texts = sentences
             
         else:
-            # Download and process real dataset
-            if dataset_type not in self.dataset_urls:
+            # Load dataset from HuggingFace Hub
+            if dataset_type not in self.dataset_configs:
                 raise ValueError(f"Unsupported dataset: {dataset_type}")
             
-            dataset_info = self.dataset_urls[dataset_type]
-            logger.info(f"Using dataset: {dataset_info['name']}")
+            dataset_config = self.dataset_configs[dataset_type]
+            logger.info(f"Using dataset: {dataset_config['name']}")
             
-            # Download files
-            for i, url in enumerate(dataset_info['urls']):
-                if total_size > self.target_size_bytes:
-                    break
-                
-                file_name = Path(urlparse(url).path).name
-                local_path = self.raw_dir / file_name
-                
-                if self.download_with_progress(url, local_path, f"Downloading {file_name}"):
-                    # Process downloaded file
-                    if local_path.suffix in ['.jsonl', '.jsonl.gz', '.json', '.json.gz']:
-                        new_texts = self.process_jsonl_file(local_path)
-                        texts.extend(new_texts)
-                        total_size = sum(len(t) for t in texts)
-                        
-                        logger.info(f"Current corpus size: {total_size / (1024*1024):.1f} MB")
+            # Check if login is required
+            if dataset_config.get('requires_login', False):
+                logger.warning("This dataset requires HuggingFace authentication.")
+                logger.warning("Please run: huggingface-cli login")
+            
+            texts = self.load_huggingface_dataset(dataset_config)
         
         # Write final corpus
-        logger.info(f"Writing {len(texts)} lines to final corpus file...")
-        with open(self.final_file, 'w', encoding='utf-8') as f:
-            for text in texts:
-                f.write(text + '\n')
+        if output_format == 'jsonl':
+            output_file = self.final_jsonl
+            logger.info(f"Writing {len(texts)} lines to JSONL format...")
+            
+            with open(output_file, 'w', encoding='utf-8') as f:
+                for text in texts:
+                    # Create JSONL entry with morphological analysis placeholder
+                    entry = {
+                        'text': text,
+                        'tokens': text.split(),  # Simple tokenization for now
+                        'morpho_types': [3] * len(text.split()),  # Default: other
+                        'semantic_categories': [11] * len(text.split())  # Default: belirsiz
+                    }
+                    f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        else:
+            output_file = self.final_file
+            logger.info(f"Writing {len(texts)} lines to text format...")
+            
+            with open(output_file, 'w', encoding='utf-8') as f:
+                for text in texts:
+                    f.write(text + '\n')
         
         # Get final size
-        final_size = self.final_file.stat().st_size
+        final_size = output_file.stat().st_size
         logger.info(f"Final corpus size: {final_size / (1024*1024):.1f} MB ({final_size / (1024*1024*1024):.2f} GB)")
         
         # Create metadata file
         metadata = {
             'dataset_type': dataset_type,
+            'dataset_name': self.dataset_configs[dataset_type]['name'],
+            'dataset_path': self.dataset_configs[dataset_type].get('dataset_path'),
             'total_lines': len(texts),
             'total_characters': final_size,
             'total_size_mb': final_size / (1024*1024),
             'total_size_gb': final_size / (1024*1024*1024),
             'target_size_gb': self.target_size_gb,
+            'output_format': output_format,
             'creation_date': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'description': f'Turkish text corpus for AGIFORMER Phase 1 experiments'
+            'description': f'Turkish text corpus for AGIFORMER Phase 1 experiments',
+            'source': 'HuggingFace Datasets Hub'
         }
         
         metadata_file = self.output_dir / 'corpus_metadata.json'
@@ -370,30 +340,36 @@ class TurkishTextCorpus:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
         
         logger.info(f"Corpus preparation completed!")
-        logger.info(f"Final corpus: {self.final_file}")
+        logger.info(f"Final corpus: {output_file}")
         logger.info(f"Metadata: {metadata_file}")
         
-        return str(self.final_file)
+        return str(output_file)
 
 
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(
-        description="Prepare Turkish text corpus for AGIFORMER Phase 1",
+        description="Prepare Turkish text corpus for AGIFORMER Phase 1 using HuggingFace Datasets",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Use FineWiki Turkish dataset (recommended)
+  python prepare_real_dataset.py --dataset finewiki_turkish --output data/turkish_corpus --size 2.0 --format jsonl
+  
+  # Use synthetic data for testing
   python prepare_real_dataset.py --dataset synthetic_turkish --output data/turkish_corpus --size 1.0
-  python prepare_real_dataset.py --dataset oscar_turkish --output data/turkish_corpus --size 2.0
+  
+  # Use OSCAR Turkish
+  python prepare_real_dataset.py --dataset oscar_turkish --output data/turkish_corpus --size 3.0 --format jsonl
         """
     )
     
     parser.add_argument(
         '--dataset',
         type=str,
-        choices=['wikipedia_oscar_turkish', 'synthetic_turkish', 'oscar_turkish'],
-        default='synthetic_turkish',
-        help='Dataset type to use (default: synthetic_turkish)'
+        choices=['finewiki_turkish', 'synthetic_turkish', 'oscar_turkish', 'mc4_turkish'],
+        default='finewiki_turkish',
+        help='Dataset type to use (default: finewiki_turkish)'
     )
     
     parser.add_argument(
@@ -406,8 +382,16 @@ Examples:
     parser.add_argument(
         '--size',
         type=float,
-        default=1.0,
-        help='Target corpus size in GB (default: 1.0)'
+        default=2.0,
+        help='Target corpus size in GB (default: 2.0)'
+    )
+    
+    parser.add_argument(
+        '--format',
+        type=str,
+        choices=['txt', 'jsonl'],
+        default='jsonl',
+        help='Output format: txt or jsonl (default: jsonl)'
     )
     
     parser.add_argument(
@@ -419,25 +403,38 @@ Examples:
     args = parser.parse_args()
     
     if args.validate:
-        corpus_path = Path(args.output) / 'turkish_corpus_phase1.txt'
-        if corpus_path.exists():
-            size_mb = corpus_path.stat().st_size / (1024*1024)
-            print(f"✅ Corpus exists: {corpus_path}")
-            print(f"📊 Size: {size_mb:.1f} MB ({size_mb/1024:.2f} GB)")
+        corpus_file = Path(args.output) / f'turkish_corpus_phase1.{args.format}'
+        if corpus_file.exists():
+            size_mb = corpus_file.stat().st_size / (1024*1024)
+            print(f"Corpus exists: {corpus_file}")
+            print(f"Size: {size_mb:.1f} MB ({size_mb/1024:.2f} GB)")
             
-            # Count lines
-            with open(corpus_path, 'r', encoding='utf-8') as f:
-                lines = sum(1 for line in f)
-            print(f"📝 Lines: {lines:,}")
+            if args.format == 'jsonl':
+                # Count lines in JSONL
+                with open(corpus_file, 'r', encoding='utf-8') as f:
+                    lines = sum(1 for line in f)
+                print(f"Lines: {lines:,}")
+            else:
+                # Count lines in text
+                with open(corpus_file, 'r', encoding='utf-8') as f:
+                    lines = sum(1 for line in f)
+                print(f"Lines: {lines:,}")
         else:
-            print(f"❌ Corpus not found: {corpus_path}")
+            print(f"Corpus not found: {corpus_file}")
         return
+    
+    # Check dependencies
+    if not DATASETS_AVAILABLE and args.dataset != 'synthetic_turkish':
+        print("ERROR: Datasets library not available!")
+        print("Install with: pip install datasets")
+        print("Or use: --dataset synthetic_turkish")
+        sys.exit(1)
     
     # Create corpus
     corpus_creator = TurkishTextCorpus(args.output, args.size)
     
     try:
-        final_path = corpus_creator.create_turkish_corpus(args.dataset)
+        final_path = corpus_creator.create_turkish_corpus(args.dataset, args.format)
         
         print("\n" + "="*60)
         print("TURKISH CORPUS PREPARATION COMPLETED!")
@@ -446,8 +443,12 @@ Examples:
         print(f"Corpus file: {final_path}")
         print(f"Size: {args.size} GB")
         print(f"Dataset: {args.dataset}")
+        print(f"Format: {args.format}")
         print("\nTo use this corpus in training:")
-        print(f"python train_phase1.py --config conf/model/agiformer-lite.yaml --data {final_path} --name agiformer-lite")
+        if args.format == 'jsonl':
+            print(f"python train.py data.data_path={final_path}")
+        else:
+            print(f"python train.py data.data_path={final_path}")
         print("="*60)
         
     except Exception as e:

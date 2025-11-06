@@ -27,7 +27,7 @@ from agiformer import AGIFORMER
 from agiformer.utils import count_parameters, format_number, WarmupScheduler
 from agiformer.datasets import CC12MDataset
 from agiformer.language.tokenizer import MorphoPiece
-from agiformer.datasets import TurkishTextDataset, TextDataset, SimpleTextDataset, create_dataloader
+from agiformer.data.dataset import TurkishTextDataset, TextDataset, SimpleTextDataset, create_dataloader
 from agiformer.experts.pseudo_labeler import PseudoLabeler
 
 try:

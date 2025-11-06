@@ -1,0 +1,39 @@
+# Developer: inkbytefo
+# Modified: 2025-11-06
+
+# @package _group_
+
+# AGIFORMER Default GPU Hardware Configuration
+# Settings optimized for standard GPU training
+
+defaults:
+  - _self_
+
+# Device settings
+device: cuda
+pytorch_cuda_alloc_conf: expandable_segments
+
+# Memory and performance settings
+use_amp: true
+amp_dtype: float16
+num_workers: 4
+pin_memory: true
+persistent_workers: true
+
+# Batch size optimization for default GPU
+training:
+  batch_size: 8
+  gradient_accumulation_steps: 4
+  use_gradient_checkpointing: true
+
+# Default GPU model settings
+model:
+  d_model: 512
+  n_layers: 8
+  n_heads: 8
+  d_ff: 2048
+  max_seq_len: 512
+  use_memory: true
+  use_introspection: true
+  use_multimodal: false
+  use_linear_attention: false

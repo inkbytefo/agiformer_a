@@ -1,7 +1,10 @@
+# Developer: inkbytefo
+# Modified: 2025-11-06
+
 # @package _group_
 
 # AGIFORMER Base Logging Configuration
-# Default logging settings for AGIFORMER
+# Default logging settings
 
 # Console Logging
 console_level: INFO
