@@ -14,6 +14,7 @@ import sentencepiece as spm
 from sentencepiece import SentencePieceProcessor
 import os
 from typing import List, Dict, Optional
+from .morpho_splitter import RegexSplitter as MorphoSplitter
 import json
 import re
 
