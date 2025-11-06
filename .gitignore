@@ -51,9 +51,11 @@ data/
 *.csv
 *.json
 
-# Text files (except requirements.txt)
+# Text files (except requirements.txt and LICENSE)
 *.txt
 !requirements.txt
+!LICENSE.txt
+!LICENSE
 
 # OS
 .DS_Store

@@ -1,0 +1,66 @@
+AGIFORMER™ PROJECT — EXCLUSIVE INTELLECTUAL PROPERTY LICENSE AGREEMENT
+
+© 2025 Tevfik İşkın. All rights reserved.
+Document ID: AGI-LIC-2025-1106
+Verified and issued by: inkbytefo Research
+
+Copyright (c) 2025-11-06
+Licensed to: Tevfik İşkın
+Project: Agıformer AI Language Model Framework
+
+================================================================================
+EXCLUSIVE PRIVATE PROPERTY LICENSE
+
+This license grants Tevfik İşkın exclusive ownership and proprietary rights 
+to the Agıformer project, including all source code, documentation, models, 
+datasets, and associated intellectual property created or developed as part 
+of this project.
+
+GRANTED RIGHTS:
+- Exclusive ownership of all source code and implementations
+- Full commercial and non-commercial usage rights
+- Right to modify, distribute, and create derivative works
+- Right to license to third parties
+- Right to claim patent protection
+- Full intellectual property rights
+
+PROTECTED ASSETS:
+- All files in the agiformer/ directory and subdirectories
+- Documentation files (AGIFORMER_*.md, *.md files)
+- Configuration files in conf/ directory
+- Training scripts and examples
+- Model architectures and implementations
+- Datasets and data processing code
+- Performance optimization guides
+- Any other project-related materials
+
+USAGE RESTRICTIONS:
+This license grants Tevfik İşkın unrestricted rights to use, modify, 
+distribute, and commercialize all aspects of the Agıformer project. 
+No attribution requirements or open-source obligations apply.
+
+The licensee has the exclusive right to:
+- Use the software for any purpose
+- Modify the software as needed
+- Distribute original or modified versions
+- Create commercial products based on the software
+- License the software to others
+- Claim full ownership and intellectual property rights
+
+================================================================================
+
+LEGAL JURISDICTION:
+This license shall be governed by and construed in accordance with the laws of
+the Republic of Türkiye. Any disputes arising from this license shall be subject
+to the exclusive jurisdiction of the courts of Istanbul, Türkiye.
+
+License Effective Date: November 6, 2025
+License Type: Exclusive Intellectual Property License Agreement
+Licensee: Tevfik İşkın
+Project: Agıformer AI Language Model Framework
+
+This license supersedes any previous licensing terms and grants complete
+exclusive ownership to the named licensee.
+
+Signature: Tevfik İşkın
+Date: 2025-11-06
