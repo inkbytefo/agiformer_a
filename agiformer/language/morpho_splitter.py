@@ -144,3 +144,142 @@ class RegexSplitter:
 
         # Check if the suffix vowel is compatible with the stem's harmony group
         return first_suffix_vowel in self.VOWEL_HARMONY[last_stem_vowel]
+
+
+class MorphoSplitter:
+    """
+    A wrapper class that provides the interface expected by the preprocessing script.
+    This class uses the RegexSplitter implementation but provides the split_word method
+    that returns the expected format with 'morfemler', 'ekler', and 'kök' keys.
+    """
+
+    def __init__(self, use_java: bool = False):
+        """
+        Initialize the MorphoSplitter.
+        
+        Args:
+            use_java: Whether to use Java-based morphological analysis (currently not implemented)
+        """
+        self._splitter = RegexSplitter()
+        self._use_java = use_java
+        logger.info("MorphoSplitter initialized")
+
+    def split_word(self, word: str) -> dict:
+        """
+        Analyze a single word and return morphological analysis in the expected format.
+        
+        Args:
+            word: The word to analyze
+            
+        Returns:
+            Dictionary with 'morfemler', 'ekler', and 'kök' keys
+        """
+        if not word or not word.strip():
+            return {
+                'morfemler': [],
+                'ekler': [],
+                'kök': ''
+            }
+        
+        # Use the underlying RegexSplitter to analyze the word
+        root, suffixes = self._splitter._analyze_word(word.strip())
+        
+        # Convert to the expected format
+        morfemler = []
+        
+        # Add root as first morfem
+        morfemler.append({
+            'morfem': root,
+            'tür': 'kök',  # Assume root is always a kök (stem)
+            'yüzey': root
+        })
+        
+        # Add suffixes as separate morfemler
+        for suffix in suffixes:
+            # Try to determine the type of suffix based on patterns
+            suffix_type = self._determine_suffix_type(suffix)
+            morfemler.append({
+                'morfem': suffix,
+                'tür': suffix_type,
+                'yüzey': suffix
+            })
+        
+        return {
+            'morfemler': morfemler,
+            'ekler': suffixes,
+            'kök': root
+        }
+
+    def _determine_suffix_type(self, suffix: str) -> str:
+        """
+        Determine the morphological type of a suffix based on its surface form.
+        
+        Args:
+            suffix: The suffix string
+            
+        Returns:
+            Morphological type string
+        """
+        suffix_lower = suffix.lower().strip('-')
+        
+        # Case markers (durum ekleri)
+        if suffix_lower in ['yi', 'yu', 'ye', 'yü']:
+            return 'belirtme'  # accusative
+        elif suffix_lower in ['ya', 'ye']:
+            return 'yönelme'   # dative
+        elif suffix_lower in ['da', 'de', 'ta', 'te']:
+            return 'bulunma'   # locative
+        elif suffix_lower in ['dan', 'den', 'tan', 'ten']:
+            return 'ayrılma'   # ablative
+        elif suffix_lower in ['ın', 'in', 'un', 'ün']:
+            return 'ilgi'      # genitive
+        
+        # Possessive markers (iyelik ekleri)
+        elif suffix_lower in ['ım', 'im', 'um', 'üm']:
+            return 'iyelik_1tekil'
+        elif suffix_lower in ['ın', 'in', 'un', 'ün']:
+            return 'iyelik_2tekil'
+        elif suffix_lower in ['ı', 'i', 'u', 'ü']:
+            return 'iyelik_3tekil'
+        elif suffix_lower in ['ımız', 'imiz', 'umuz', 'ümüz']:
+            return 'iyelik_1çoğul'
+        elif suffix_lower in ['ınız', 'iniz', 'unuz', 'ünüz']:
+            return 'iyelik_2çoğul'
+        elif suffix_lower in ['leri', 'ları']:
+            return 'iyelik_3çoğul'
+        
+        # Plural marker
+        elif suffix_lower in ['ler', 'lar']:
+            return 'çoğul'
+        
+        # Verb tense markers
+        elif suffix_lower in ['yor', 'ıyor', 'iyor', 'üyor']:
+            return 'şimdiki_zaman'  # progressive
+        elif suffix_lower in ['tı', 'ti', 'tu', 'tü', 'dı', 'di', 'du', 'dü']:
+            return 'geçmiş_zaman'   # past tense
+        elif suffix_lower in ['acak', 'ecek']:
+            return 'gelecek_zaman'  # future
+        elif suffix_lower in ['sa', 'se']:
+            return 'şart'           # conditional
+        elif suffix_lower in ['sın', 'sin', 'sun', 'sün']:
+            return 'emir'           # imperative
+        elif suffix_lower in ['mak', 'mek']:
+            return 'mastar'         # infinitive
+        elif suffix_lower in ['ma', 'me']:
+            return 'olumsuz'        # negative
+        
+        # Default to general suffix
+        else:
+            return 'ek'
+
+    def split_sentence(self, sentence: str) -> dict:
+        """
+        Analyze a sentence (provided for compatibility with RegexSplitter).
+        
+        Args:
+            sentence: The sentence to analyze
+            
+        Returns:
+            Dictionary with analysis results
+        """
+        return self._splitter.split_sentence(sentence)
