@@ -1,0 +1,20 @@
+{"text": "Merhaba dünya! Bu bir örnek metindir.", "morpho_types": ["INTJ", "NOUN", "ADJ", "NOUN", "PUNCT"]}
+{"text": "Türkçe doğal dil işleme araştırmaları çok önemlidir.", "morpho_types": ["NOUN", "ADJ", "NOUN", "NOUN", "ADJ", "NOUN", "PUNCT"]}
+{"text": "Yapay zeka teknolojileri hızla gelişmektedir.", "morpho_types": ["NOUN", "NOUN", "NOUN", "VERB", "PUNCT"]}
+{"text": "Derin öğrenme modelleri karmaşık problemleri çözebilir.", "morpho_types": ["NOUN", "NOUN", "NOUN", "ADJ", "NOUN", "VERB", "PUNCT"]}
+{"text": "Makine öğrenmesi alanında birçok yenilik yaşanmaktadır.", "morpho_types": ["NOUN", "NOUN", "NOUN", "ADJ", "NOUN", "VERB", "PUNCT"]}
+{"text": "Doğal dil işleme NLP'nin temel konularından biridir.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "ADJ", "NOUN", "NOUN", "PUNCT"]}
+{"text": "Transformer mimarisi çeviri alanında devrim yaratmıştır.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "VERB", "PUNCT"]}
+{"text": "Dikkat mekanizmaları model performansını önemli ölçüde artırmıştır.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "ADJ", "NOUN", "VERB", "PUNCT"]}
+{"text": "PyTorch derin öğrenme araştırmaları için popüler bir framework'tür.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "PUNCT"]}
+{"text": "Türkçe'nin eklemeli yapısı dil işlemede özel dikkat gerektirir.", "morpho_types": ["NOUN", "ADJ", "NOUN", "NOUN", "NOUN", "NOUN", "ADJ", "NOUN", "VERB", "PUNCT"]}
+{"text": "Veri bilimi projelerinde doğru preprocessing kritik öneme sahiptir.", "morpho_types": ["NOUN", "NOUN", "NOUN", "ADJ", "NOUN", "NOUN", "ADJ", "NOUN", "NOUN", "PUNCT"]}
+{"text": "Kodlama becerileri modern yazılım geliştirmede vazgeçilmezdir.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "PUNCT"]}
+{"text": "Kaliteli test yazımı yazılım güvenilirliğini artırır.", "morpho_types": ["ADJ", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "VERB", "PUNCT"]}
+{"text": "Versiyon kontrol sistemleri proje yönetiminde önemli rol oynar.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "VERB", "PUNCT"]}
+{"text": "Hata ayıklama süreci programcılık becerilerini geliştirir.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "VERB", "PUNCT"]}
+{"text": "Open source projeleri yazılım ekosistemine değerli katkılar sağlar.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "ADJ", "NOUN", "VERB", "PUNCT"]}
+{"text": "API tasarımı modern uygulama geliştirmede kritik bir konudur.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "PUNCT"]}
+{"text": "Veritabanı yönetimi sistem performansını doğrudan etkiler.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "VERB", "PUNCT"]}
+{"text": "Kullanıcı deneyimi tasarım prensipleri ürün başarısında belirleyicidir.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "ADJ", "PUNCT"]}
+{"text": "Ağ güvenliği dijital platformlarda temel gereksinimdir.", "morpho_types": ["NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "NOUN", "PUNCT"]}

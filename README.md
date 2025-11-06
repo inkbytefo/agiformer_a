@@ -1,21 +1,21 @@
-# AGIFORMER: Artificial General Intelligence Transformer v0.1
+# AGIFORMER: Experimental AGI Research Framework v0.1
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org)
 [![License](https://img.shields.io/badge/License-Private-green.svg)](LICENSE.txt)
 [![Version](https://img.shields.io/badge/Version-0.1.0-orange.svg)](https://github.com/inkbytefo/agiformer_a)
 
-AGIFORMER, Yapay Genel Zeka'ya yönelik geliştirilmiş devrim niteliğinde bir Transformer mimarisidir. TMA-1'in güçlü Türkçe dil işleme yeteneklerini entegre ederek çoklu modalite işleme, uzmanlaşmış akıl yürütme motorları, bellek sistemi ve iç gözlem yeteneklerini bir araya getirerek geleneksel dil modellerinin ötesine geçmeyi hedefler.
+AGIFORMER, Yapay Genel Zeka'ya yönelik yenilikçi mimari konseptlerini araştıran deneysel bir framework'tür. Geliştirilme aşamasındaki bileşenleri (uzmanlaşmış akıl yürütme motorları, bellek sistemi, iç gözlem yetenekleri) bir araya getirerek geleneksel Transformer mimarilerinin ötesine geçmeye yönelik kavramsal araştırmalar yürütmektedir.
 
-## ✨ Ana Özellikler
+## ✨ Experimental Features (Under Development)
 
-- 🧠 **Mixture of Experts (MoE)**: 4 uzmanlaşmış akıl yürütme motoru (Dil, Mantık, Mekansal, Nedensel)
-- 🎯 **Multimodal Algı**: Metin, görüntü, ses ve video işleme
-- 💾 **Gelişmiş Bellek Sistemi**: Çalışma belleği + uzun süreli bellek
-- 🔍 **İç Gözlem**: Kendi kendini gözlemleme ve iteratif iyileştirme
-- 📝 **MorphoPiece Tokenizer**: Türkçe morfolojik farkındalıklı tokenizasyon
-- 🇹🇷 **Türkçe Dil İşleme**: TMA-1 entegrasyonu ile gelişmiş Türkçe anlayışı
-- ⚡ **Optimize Edilmiş Performans**: Mixed precision, gradient_checkpointing desteği
+- 🧠 **Mixture of Experts (MoE)**: 4 specialized reasoning engines (Language, Logic, Spatial, Causal) - *Conceptual implementation*
+- 🎯 **Multimodal Perception**: Text, image, audio and video processing - *Research framework*
+- 💾 **Advanced Memory System**: Working memory + long-term memory - *Architectural concept*
+- 🔍 **Introspection**: Self-observation and iterative improvement - *Experimental phase*
+- 📝 **MorphoPiece Tokenizer**: Turkish morphological awareness tokenization - *Basic implementation*
+- 🇹🇷 **Turkish Language Processing**: TMA-1 integration for advanced Turkish understanding - *Development stage*
+- ⚡ **Performance Optimizations**: Mixed precision, gradient_checkpointing support - *Infrastructure ready*
 
 ## 🚀 Hızlı Başlangıç
 
@@ -222,18 +222,32 @@ python examples/introspection_test.py
 python test_fix.py
 ```
 
-## 📈 Performans
+## 📈 Current Development Status
 
-### Model Boyutları
-- **Temel Konfigürasyon**: ~150M parametre
-- **Hafıza Kullanımı**: ~2-4GB GPU
-- **İnference Hızı**: ~50ms/sequence (V100)
+### Framework Architecture (Under Development)
+- **Basic Model Framework**: Conceptual implementation of MoE architecture
+- **Memory Usage**: Infrastructure ready for memory optimization
+- **Training Pipeline**: Basic training loop with room for optimization
+- **Research Focus**: Architectural experimentation, not performance benchmarking
 
-### Optimizasyonlar
-- ✅ Mixed precision training
-- ✅ Gradient checkpointing
-- ✅ Expert caching
-- ✅ Sequence packing
+### Infrastructure Status
+- ✅ Mixed precision training infrastructure
+- ✅ Gradient checkpointing support
+- ✅ Configurable model architecture
+- 🔄 Training optimization (in progress)
+
+## 🎯 Research Vision (Long-term Goals)
+
+**Note**: The following represents our long-term research vision and experimental goals, not current achieved results.
+
+### Target Performance Goals
+- **SOTA Reasoning**: Mixture of Experts for specialized cognitive tasks
+- **Multimodal Integration**: Unified text, image, audio, video understanding
+- **Advanced Memory**: Persistent knowledge and context awareness
+- **Self-Introspection**: Meta-learning and self-improvement capabilities
+- **Turkish Language Mastery**: Native-level Turkish language understanding
+
+**Important**: These are research objectives and experimental goals, not currently achieved benchmarks. The project is in early research and development phase.
 
 ## 🎯 Örnekler
 
@@ -386,19 +400,28 @@ Bu proje **özel mülkiyet lisansı** altında lisanslanmıştır - [LICENSE.txt
 - **Issues**: https://github.com/yourusername/agiformer/issues
 - **Discussions**: https://github.com/yourusername/agiformer/discussions
 
-## 🗺️ Yol Haritası
+## 🗺️ Development Roadmap
 
-### v0.2 (Planlanan)
-- [ ] Daha fazla modalite (3D, sensör verileri)
-- [ ] Gelişmiş uzmanlar (matematik, kod, müzik)
-- [ ] Hiyerarşik bellek sistemi
-- [ ] Meta-öğrenme Yetenekleri
+### Current Status (v0.1)
+- ✅ Basic framework architecture
+- ✅ Initial MoE conceptual implementation
+- ✅ Training infrastructure setup
+- 🔄 Real dataset integration (in progress)
+- 🔄 Component testing and validation
 
-### v0.3 (Uzun vadeli)
-- [ ] Dağıtık eğitim desteği
-- [ ] Mobil optimizasyon
-- [ ] Web arayüzü
-- [ ] API hizmeti
+### v0.2 (Next Development Phase)
+- [ ] Complete real dataset training verification
+- [ ] Enhanced MoE expert implementations
+- [ ] Improved memory system architecture
+- [ ] Basic multimodal integration testing
+
+### v0.3 (Long-term Research Goals)
+- [ ] Advanced expert specializations
+- [ ] Distributed training capabilities
+- [ ] Mobile optimization research
+- [ ] API service development
+
+**Note**: All roadmap items are development goals, not guaranteed deliverables. This is research-focused experimental work.
 
 ---
 

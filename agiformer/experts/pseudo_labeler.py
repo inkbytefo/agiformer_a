@@ -14,16 +14,16 @@ class PseudoLabeler:
             # Try Turkish model first, fallback to English
             try:
                 self.nlp = spacy.load("tr_core_news_sm")
-                print("✅ spaCy Turkish model loaded successfully.")
+                print("spaCy Turkish model loaded successfully.")
             except IOError:
                 try:
                     self.nlp = spacy.load("en_core_web_sm")
-                    print("✅ spaCy English model loaded as fallback.")
+                    print("spaCy English model loaded as fallback.")
                 except IOError:
-                    print("⚠️ No spaCy model found. Install with: python -m spacy download en_core_web_sm")
+                    print("WARNING: No spaCy model found. Install with: python -m spacy download en_core_web_sm")
                     self.nlp = None
         except ImportError:
-            print("⚠️ spaCy not installed. Install with: pip install spacy")
+            print("WARNING: spaCy not installed. Install with: pip install spacy")
             self.nlp = None
 
         # TODO: Önceden eğitilmiş Word2Vec modeli yüklenecek (örn. Gensim)

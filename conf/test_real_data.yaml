@@ -1,0 +1,79 @@
+# @package _global_
+
+# AGIFORMER Test Configuration with Real Dataset
+# This config uses the real Turkish dataset for testing
+
+defaults:
+  - _self_
+  - model: minimal
+  - training: base
+  - data: base
+  - hardware: base
+  - logging: base
+
+# Experiment metadata
+experiment_name: agiformer_real_data_test
+run_name: ${experiment_name}_${now:%Y%m%d_%H%M%S}
+output_dir: outputs/${run_name}
+
+# Data configuration for real dataset
+data:
+  dataset_name: turkish_text
+  data_path: turkish_dataset.jsonl  # Path to our real dataset
+  data_dir: null  # Disable CC12M multimodal
+  train_split: 0.8
+  val_split: 0.2
+  num_workers: 0  # For simplicity in testing
+  pin_memory: false
+  persistent_workers: false
+
+# Training configuration
+training:
+  epochs: 5  # Just a few epochs for testing
+  max_steps: 100  # Limited steps for testing
+  batch_size: 2  # Small batch size for testing
+  learning_rate: 1e-4
+  use_amp: false  # Disable AMP for CPU testing
+  use_gradient_checkpointing: true
+  weight_decay: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1e-8
+  warmup_steps: 10
+  optimizer: "adamw"
+  checkpoint_dir: "checkpoints"
+  keep_last_n_checkpoints: 3
+
+# Model configuration
+model:
+  vocab_size: 256
+  d_model: 128  # Small model for testing
+  d_ff: 512     # Feed-forward dimension (4 * d_model for small model)
+  n_layers: 2   # Few layers for testing
+  n_heads: 4
+  n_experts: 2  # Smaller MoE for testing
+  expert_types: ["language", "logic"]
+  max_seq_len: 64  # Short sequences
+  use_memory: true
+  use_introspection: false  # Disable for testing
+  use_multimodal: false  # Text only
+  dropout: 0.1
+  # Removed invalid parameters that AGIFORMER constructor doesn't accept
+
+# Hardware configuration
+hardware:
+  device: "auto"  # Auto detect
+  pytorch_cuda_alloc_conf: null
+
+# Logging configuration
+logging:
+  console_level: "INFO"
+  file_level: "INFO"
+  use_wandb: false
+  wandb_project: "agiformer"
+  wandb_tags: ["test", "debug"]
+  wandb_notes: "Real dataset testing"
+
+# Global settings
+seed: 42
+debug: true

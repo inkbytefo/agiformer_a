@@ -34,11 +34,13 @@ class AGIFORMERBlock(nn.Module):
         dropout: float = 0.1,
         use_linear_attention: bool = False,
         use_introspection: bool = False,
+        use_agglutinative_attention: bool = True,
         global_knowledge_graph=None
     ):
         super().__init__()
         self.d_model = d_model
         self.use_introspection = use_introspection
+        self.use_agglutinative_attention = use_agglutinative_attention
 
         if use_linear_attention:
             self.attention = LinearAttention(d_model, n_heads, dropout)
@@ -62,7 +64,8 @@ class AGIFORMERBlock(nn.Module):
 
         custom_experts = []
         for exp_type in expert_types[:n_experts]:
-            if exp_type == 'language': custom_experts.append(LanguageExpert(d_model, d_ff, n_heads, dropout))
+            if exp_type == 'language':
+                custom_experts.append(LanguageExpert(d_model, d_ff, n_heads, dropout, use_agglutinative_attention))
             elif exp_type == 'logic': custom_experts.append(LogicExpert(d_model, d_ff, n_heads, dropout))
             elif exp_type == 'spatial': custom_experts.append(SpatialExpert(d_model, d_ff, n_heads, dropout))
             elif exp_type == 'causal': custom_experts.append(CausalExpert(d_model, d_ff, n_heads, dropout))
@@ -144,6 +147,7 @@ class AGIFORMER(nn.Module):
         d_ff: int = 3072, n_experts: int = 4, expert_types: list = None, memory_size: int = 10000,
         max_seq_len: int = 2048, dropout: float = 0.1, use_linear_attention: bool = False,
         use_memory: bool = True, use_introspection: bool = True, use_multimodal: bool = True,
+        use_agglutinative_attention: bool = True,
         # --- DEĞİŞİKLİK: Yeni parametre eklendi ---
         use_gradient_checkpointing: bool = False
     ):
@@ -156,6 +160,7 @@ class AGIFORMER(nn.Module):
         self.n_layers = n_layers
         self.max_seq_len = max_seq_len
         self.use_gradient_checkpointing = use_gradient_checkpointing # <-- DEĞİŞİKLİK: Değeri sakla
+        self.use_agglutinative_attention = use_agglutinative_attention
 
         # Token embedding layer (MorphoPiece sadece tokenization yapıyor)
         self.token_embedding = nn.Embedding(self.vocab_size, d_model)
@@ -175,6 +180,7 @@ class AGIFORMER(nn.Module):
             AGIFORMERBlock(
                 d_model, n_heads, d_ff, n_experts, expert_types, dropout,
                 use_linear_attention, (use_introspection and (i == n_layers - 1)),
+                use_agglutinative_attention,
                 global_knowledge_graph=self.global_knowledge_graph
             ) for i in range(n_layers)
         ])

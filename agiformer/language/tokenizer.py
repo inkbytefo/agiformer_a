@@ -193,6 +193,18 @@ class MorphoPiece:
                 })
         
         return tokens
+    
+    def pad_id(self) -> int:
+        """Get padding token ID"""
+        if self.sp_processor:
+            return self.sp_processor.pad_id()
+        return 0  # Default padding ID
+    
+    def unk_id(self) -> int:
+        """Get unknown token ID"""
+        if self.sp_processor:
+            return self.sp_processor.unk_id()
+        return 1  # Default UNK ID
 
 def main():
     """Test fonksiyonu"""

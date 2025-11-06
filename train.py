@@ -245,14 +245,24 @@ def create_dataset(data_dir, data_path, model_config, train_split, tokenizer=Non
     # Check for Turkish text dataset (JSONL with morpho_types)
     if data_path and Path(data_path).exists() and data_path.endswith('.jsonl'):
         print(f"Loading Turkish text dataset from: {data_path}")
-        train_ds, val_ds = create_dataloader(
+        # Use our TurkishTextDataset directly with MorphoPiece tokenizer
+        from agiformer.data.dataset import TurkishTextDataset
+        from torch.utils.data import random_split
+        
+        train_dataset = TurkishTextDataset(
             corpus_file=data_path,
-            tokenizer_path=None,  # We'll use the loaded tokenizer
-            batch_size=1,  # Not used here
+            tokenizer=tokenizer,
             max_seq_len=model_config['max_seq_len'],
             is_jsonl=True
         )
-        return train_ds.dataset, val_ds.dataset, False
+        
+        # Split into train and validation
+        total_size = len(train_dataset)
+        train_size = int(train_split * total_size)
+        val_size = total_size - train_size
+        
+        train_ds, val_ds = random_split(train_dataset, [train_size, val_size])
+        return train_ds, val_ds, False
 
     # Fallback to simple text dataset
     print("Using fallback text-only dataset")
