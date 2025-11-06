@@ -6,7 +6,7 @@ AGIFORMER Language Processing Module
 Türkçe dil işleme yetenekleri için modüller
 """
 
-from .morpho_splitter import ZeyrekSplitter as MorphoSplitter
+from .morpho_splitter import RegexSplitter as MorphoSplitter
 from .tokenizer import MorphoPiece
 from .grammar_engine import GrammarEngine
 from .attention import AgglutinativeAttention
