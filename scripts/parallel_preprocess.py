@@ -14,16 +14,16 @@ import os
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from agiformer.language.morpho_splitter import MorphoSplitter
+from agiformer.language.morpho_splitter import VnlpSplitter
 
-# Global MorphoSplitter nesnesi (her bir alt işlemde bir kez başlatılacak)
+# Global VnlpSplitter nesnesi (her bir alt işlemde bir kez başlatılacak)
 splitter = None
 
 def init_worker():
-    """Her bir alt işlem (worker) için MorphoSplitter'ı başlatır."""
+    """Her bir alt işlem (worker) için VnlpSplitter'ı başlatır."""
     global splitter
-    print(f"Initializing MorphoSplitter for process {os.getpid()}...")
-    splitter = MorphoSplitter()
+    print(f"Initializing VnlpSplitter for process {os.getpid()}...")
+    splitter = VnlpSplitter()
 
 def process_chunk(lines: list[str]) -> list[str]:
     """

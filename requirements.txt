@@ -47,6 +47,7 @@ torch-geometric>=2.5.0
 spacy>=3.7.0
 gensim>=4.3.0
 
+vngrs-nlp>=1.0.0
 # Tokenizer Training
 sentencepiece>=0.1.99
 
