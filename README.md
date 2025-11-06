@@ -2,8 +2,8 @@
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.1.0-orange.svg)](https://github.com/yourusername/agiformer)
+[![License](https://img.shields.io/badge/License-Private-green.svg)](LICENSE.txt)
+[![Version](https://img.shields.io/badge/Version-0.1.0-orange.svg)](https://github.com/inkbytefo/agiformer_a)
 
 AGIFORMER, Yapay Genel Zeka'ya yönelik geliştirilmiş devrim niteliğinde bir Transformer mimarisidir. TMA-1'in güçlü Türkçe dil işleme yeteneklerini entegre ederek çoklu modalite işleme, uzmanlaşmış akıl yürütme motorları, bellek sistemi ve iç gözlem yeteneklerini bir araya getirerek geleneksel dil modellerinin ötesine geçmeyi hedefler.
 
@@ -23,7 +23,7 @@ AGIFORMER, Yapay Genel Zeka'ya yönelik geliştirilmiş devrim niteliğinde bir 
 
 ```bash
 # Repoyu klonla
-git clone https://github.com/yourusername/agiformer.git
+git clone https://github.com/inkbytefo/agiformer_a.git
 cd agiformer
 
 # Ortam oluştur
@@ -71,6 +71,11 @@ print(f"Çıktı: {result}")
 │                    AGIFORMER v0.1                           │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
+│  ┌─────────────────────────────────────────────────┐     │
+│  │           TMA-1 (Türkçe Mantık Ağı)             │     │
+│  │        AgglutinativeAttention + Grammar         │     │
+│  └─────────────────────────────────────────────────┘     │
+│                           │                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
 │  │   Metin     │  │   Görüntü   │  │    Ses      │         │
 │  └─────────────┘  └─────────────┘  └─────────────┘         │
@@ -80,12 +85,17 @@ print(f"Çıktı: {result}")
 │  └─────────────────────────────────────────────────┘     │
 │                           │                                 │
 │  ┌─────────────────────────────────────────────────┐     │
-│  │            Bellek Sistemi                        │     │
+│  │            Memory Backbone                       │     │
+│  │    MemoryBank + WorkingMemory + UnifiedMemory   │     │
 │  └─────────────────────────────────────────────────┘     │
 │                           │                                 │
 │  ┌─────────────────────────────────────────────────┐     │
-│  │          AGIFORMER Block Stack (N=12)           │     │
-│  │  Attention + MoE + Introspection                │     │
+│  │          Expert Stack (Mixture of Experts)      │     │
+│  │   Language │ Logic │ Spatial │ Causal │ MoE     │     │
+│  └─────────────────────────────────────────────────┘     │
+│                           │                                 │
+│  ┌─────────────────────────────────────────────────┐     │
+│  │              AGIFORMER Block (N layers)         │     │
 │  └─────────────────────────────────────────────────┘     │
 │                           │                                 │
 │  ┌─────────────────────────────────────────────────┐     │
@@ -96,28 +106,41 @@ print(f"Çıktı: {result}")
 
 ## 🧩 Bileşenler
 
-### 1. Uzman Sistemi (MoE)
-- **Dil Uzmanı**: AgglutinativeAttention mekanizması ile Türkçe'nin eklemeli yapısına özel morfolojik farkındalık ve dil işleme
-- **Mantık Uzmanı**: İlişkisel akıl yürütme
-- **Mekansal Uzman**: Geometrik özellik çıkarma
-- **Nedensel Uzman**: Sebep-sonuç ilişkileri
+### 1. TMA-1 (Türkçe Mantık Ağı)
+- **AgglutinativeAttention**: Türkçe'nin eklemeli yapısına özel attention mekanizması
+- **MorphoPiece Tokenizer**: Morfolojik farkındalıklı tokenizasyon
+- **Grammar Engine**: Türkçe dilbilgisi kuralları ve ses uyumu kontrolü
+- **Morpho Splitter**: Regex ve Java tabanlı morfem ayrımı
 
-### 2. Multimodal Algı
-- **Görüntü**: CLIP tabanlı encoder
-- **Ses**: 1D evrişimli ağlar
-- **Video**: Spatio-temporal işleme
-- **Metin**: MorphoPiece tokenizasyon (Türkçe morfolojik farkındalık)
+### 2. Uzman Sistemi (MoE)
+- **ExpertRouter**: Dinamik uzman yönlendirme
+- **Language Expert**: Dil işleme ve morfolojik analiz
+- **Logic Expert**: Mantıksal akıl yürütme
+- **Spatial Expert**: Mekansal ve geometrik işleme
+- **Causal Expert**: Nedensel ilişki analizi
+- **Neuro-Symbolic Expert**: Sembolik-mantıksal hibrit akıl yürütme
 
-### 3. Bellek Sistemi
-- **Working Memory**: Segment-level recurrence
-- **Long-term Memory**: Dış bellek bankası
-- **Memory Fusion**: Üçlü füzyon mekanizması
+### 3. Multimodal Algı
+- **TextEncoder**: Karakter/seviye veya token-seviye metin işleme
+- **ImageEncoder**: CLIP tabanlı görüntü encoder'ı
+- **AudioEncoder**: Mel-spektrogram tabanlı ses işleme
+- **VideoEncoder**: Spatio-temporal video analizi
 
-### 4. İç Gözlem
+### 4. Bellek Sistemi
+- **MemoryBank**: Uzun süreli bellek deposu
+- **WorkingMemory**: Segment-seviye çalışma belleği
+- **UnifiedMemoryBackbone**: Tümleşik bellek yönetimi
+
+### 5. Knowledge Graph Sistemi
+- **GlobalKnowledgeGraph**: Küresel bilgi grafiği
+- **DynamicKnowledgeGraph**: Dinamik kavram ilişkileri
+- **RelationClassifier**: İlişki tipi sınıflandırma
+
+### 6. İç Gözlem
 - **Self-Model**: Kendi durumunu gözlemleme
-- **Error Detection**: Hata tespiti
-- **Confidence Estimation**: Güven skoru tahmini
-- **Correction Network**: Kendi kendini düzeltme
+- **Meta Learning**: Öğrenmeyi öğrenme yetenekleri
+- **Task Classifier**: Görev tipi otomatik sınıflandırma
+- **Pseudo Labeler**: Otomatik veri etiketleme
 
 ## 📚 Dökümantasyon
 
@@ -268,33 +291,53 @@ training:
 agiformer/
 ├── agiformer/                 # Ana paket
 │   ├── core/                 # Çekirdek bileşenler
-│   │   ├── attention.py      # Attention mekanizmaları
-│   │   ├── memory_backbone.py # Bellek sistemi
-│   │   └── multimodal_perception.py # Multimodal
-│   ├── language/             # ✅ YENİ: Dil işleme modülleri
-│   │   ├── morpho_splitter.py    # Morfem ayrımı
-│   │   ├── tokenizer.py          # MorphoPiece tokenizer
-│   │   ├── grammar_engine.py     # Dilbilgisi motoru
-│   │   └── attention.py          # AgglutinativeAttention
-│   ├── data/                 # ✅ YENİ: Veri işleme modülleri
-│   │   └── dataset.py            # TurkishTextDataset
-│   ├── experts/              # Uzman sistemleri
-│   │   ├── moe.py           # MoE yönlendirme
-│   │   ├── language_expert.py (AgglutinativeAttention) # Dil uzmanı
+│   │   ├── attention.py      # MultiHead, Linear, SyntaxAware, CrossModal attention
+│   │   ├── base_components.py # LayerNorm, PositionalEncoding, FeedForward
+│   │   ├── memory_backbone.py # MemoryBank, WorkingMemory, UnifiedMemoryBackbone
+│   │   └── multimodal_perception.py # Text/Image/Audio/Video encoders
+│   ├── language/             # Türkçe dil işleme modülleri (TMA-1)
+│   │   ├── model.py          # TMA1Model (Türkçe Mantık Ağı)
+│   │   ├── attention.py      # AgglutinativeAttention (eklemeli yapı)
+│   │   ├── morpho_splitter.py # Regex ve Java tabanlı morfem ayrımı
+│   │   ├── tokenizer.py      # MorphoPiece tokenizer
+│   │   └── grammar_engine.py # Türkçe dilbilgisi kuralları motoru
+│   ├── experts/              # Mixture of Experts sistemi
+│   │   ├── moe.py           # ExpertRouter, Expert, MixtureOfExperts
+│   │   ├── language_expert.py # Dil uzmanı
 │   │   ├── logic_expert.py   # Mantık uzmanı
 │   │   ├── spatial_expert.py # Mekansal uzman
-│   │   └── causal_expert.py  # Nedensel uzman
+│   │   ├── causal_expert.py  # Nedensel uzman
+│   │   ├── knowledge_graph.py # Global/Dynamic knowledge graphs
+│   │   ├── neuro_symbolic_expert.py # Neuro-symbolic reasoning
+│   │   ├── pseudo_labeler.py # Otomatik etiketleme
+│   │   ├── task_classifier.py # Görev tipi sınıflandırma
+│   │   └── relations.py      # İlişki işleme
 │   ├── introspection/        # İç gözlem sistemi
-│   │   ├── self_model.py    # Self-model
-│   │   └── meta_learning.py # Meta-learning
-│   └── model.py              # Ana model (MorphoPiece entegrasyonu)
-├── configs/                  # Konfigürasyon dosyaları
+│   │   ├── self_model.py    # Self-model gözlemi
+│   │   └── meta_learning.py # Meta-öğrenme
+│   ├── datasets/             # Veri seti yönetimi
+│   │   ├── base_dataset.py   # Temel dataset sınıfı
+│   │   └── cc_datasets.py    # Common Crawl veri işleme
+│   ├── __init__.py
+│   ├── model.py              # AGIFORMER ana model
+│   ├── data_quality.py       # Veri kalitesi kontrolü
+│   └── utils.py              # Yardımcı fonksiyonlar
+├── conf/                     # Konfigürasyon dosyaları
+│   ├── model/               # Model konfigürasyonları
+│   ├── training/            # Eğitim ayarları
+│   ├── hardware/            # Donanım optimizasyonu
+│   └── logging/             # Log ayarları
 ├── examples/                 # Kullanım örnekleri
 ├── scripts/                  # Yardımcı script'ler
-│   ├── preprocess_language_data.py  # ✅ YENİ: Veri ön işleme
-│   └── train_tokenizer.py           # ✅ YENİ: Tokenizer eğitimi
+│   ├── analyze_data_quality.py
+│   ├── clean_corpus.py
+│   ├── download_real_datasets.py
+│   ├── prepare_cc12m.py
+│   ├── preprocess_language_data.py
+│   ├── train_tokenizer.py
+│   └── test_*.py             # Performans testleri
 ├── tests/                    # Testler
-└── train.py                  # Eğitim script'i (güncellendi)
+└── train.py                  # Eğitim script'i
 ```
 
 ## 🤝 Katkı
@@ -311,7 +354,7 @@ Katkılarınızı bekliyoruz! Lütfen aşağıdaki adımları izleyin:
 
 ```bash
 # Geliştirme ortamı
-git clone https://github.com/yourusername/agiformer.git
+git clone https://github.com/inkbytefo/agiformer_a.git
 cd agiformer
 
 # Development modunda kur
@@ -327,7 +370,7 @@ flake8 agiformer/
 
 ## 📄 Lisans
 
-Bu proje MIT Lisansı altında lisanslanmıştır - [LICENSE](LICENSE) dosyasına bakın.
+Bu proje **özel mülkiyet lisansı** altında lisanslanmıştır - [LICENSE.txt](LICENSE.txt) dosyasına bakın. Tüm fikri mülkiyet hakları Tevfik İşkın'a aittir.
 
 ## 🙏 Teşekkürler
 
@@ -363,8 +406,8 @@ Bu proje MIT Lisansı altında lisanslanmıştır - [LICENSE](LICENSE) dosyasın
 
 **AGIFORMER** - Yapay Genel Zeka'ya giden yolculukta bir adım
 
-[![Star](https://img.shields.io/github/stars/yourusername/agiformer.svg?style=social&label=Star)](https://github.com/yourusername/agiformer)
-[![Fork](https://img.shields.io/github/forks/yourusername/agiformer.svg?style=social&label=Fork)](https://github.com/yourusername/agiformer/fork)
-[![Watch](https://img.shields.io/github/watchers/yourusername/agiformer.svg?style=social&label=Watch)](https://github.com/yourusername/agiformer)
+[![Star](https://img.shields.io/github/stars/yourusername/agiformer.svg?style=social&label=Star)](https://github.com/inkbytefo/agiformer_a)
+[![Fork](https://img.shields.io/github/forks/yourusername/agiformer.svg?style=social&label=Fork)](https://github.com/inkbytefo/agiformer_a/fork)
+[![Watch](https://img.shields.io/github/watchers/yourusername/agiformer.svg?style=social&label=Watch)](https://github.com/inkbytefo/agiformer_a)
 
 </div>
