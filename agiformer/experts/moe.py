@@ -179,13 +179,22 @@ class MixtureOfExperts(nn.Module):
         expert_outputs = []
         expert_infos = []
         for i, expert in enumerate(self.experts):
-            # Forward additional kwargs selectively:
-            # - Standard MLP experts only accept (x)
-            # - Custom experts may accept extra signals (e.g. attention_mask, morpho_types)
+            # Forward additional kwargs selectively based on expert signature:
+            # - Standard MLP Expert: only accepts (x)
+            # - Custom experts (e.g. LanguageExpert, LogicExpert, etc.) may accept extra signals.
             if isinstance(expert, Expert):
+                # Strictly no extra kwargs for base Expert to avoid unexpected-arg errors
                 expert_result = expert(hidden_states)
             else:
-                expert_result = expert(hidden_states, **expert_kwargs)
+                # Filter kwargs by the expert's forward() signature to prevent TypeError
+                import inspect
+                sig = inspect.signature(expert.forward)
+                allowed = {
+                    k: v
+                    for k, v in expert_kwargs.items()
+                    if k in sig.parameters
+                }
+                expert_result = expert(hidden_states, **allowed)
             if isinstance(expert_result, tuple):
                 expert_out, expert_info = expert_result
                 expert_infos.append(expert_info)
