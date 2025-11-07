@@ -155,7 +155,7 @@ class AGIFORMER(nn.Module):
 
         # Tokenizer'ı sakla ve vocab_size'ı ondan al
         self.tokenizer = tokenizer
-        self.vocab_size = tokenizer.vocab_size
+        self.vocab_size = tokenizer.vocab_size() if hasattr(tokenizer, 'vocab_size') and callable(getattr(tokenizer, 'vocab_size')) else tokenizer.vocab_size
         self.d_model = d_model
         self.n_layers = n_layers
         self.max_seq_len = max_seq_len

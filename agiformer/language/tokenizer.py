@@ -205,6 +205,12 @@ class MorphoPiece:
         if self.sp_processor:
             return self.sp_processor.unk_id()
         return 1  # Default UNK ID
+    
+    def vocab_size(self) -> int:
+        """Get vocabulary size"""
+        if self.sp_processor:
+            return self.sp_processor.vocab_size()
+        return 32000  # Default vocab size
 
 def main():
     """Test fonksiyonu"""
