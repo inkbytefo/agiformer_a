@@ -43,7 +43,7 @@ model:
 
 training:
   # Tuned for 1x T4 14GB (smaller model → can use same batch size)
-  batch_size: 32
+  batch_size: 1
   epochs: 3
   max_steps: 30000
   gradient_accumulation_steps: 1
