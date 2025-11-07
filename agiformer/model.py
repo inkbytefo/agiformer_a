@@ -214,8 +214,9 @@ class AGIFORMER(nn.Module):
         elif input_ids is not None:
             # Input_ids zaten tokenize edilmiş, embedding'e çevir
             # --- DEĞİŞİKLİK: Hatalı token ID'lerini yakalamak için doğrulama ---
-            if not (input_ids.max() < self.vocab_size and input_ids.min() >= 0):
-                invalid_ids = input_ids[input_ids >= self.vocab_size]
+            # --- DEĞİŞİKLİK: Hatalı token ID'lerini yakalamak için doğrulama ---
+            invalid_ids = input_ids[input_ids >= self.vocab_size]
+            if invalid_ids.numel() > 0:
                 raise ValueError(
                     f"input_ids contains tokens out of bounds. "
                     f"Vocab size is {self.vocab_size}, but found token(s): {invalid_ids.unique().tolist()}"

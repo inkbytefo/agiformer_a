@@ -224,7 +224,13 @@ class TurkishTextDataset(Dataset):
             target_morpho_types = target_morpho_types + [pad_morpho_type] * padding_len
             input_semantic_categories = input_semantic_categories + [pad_semantic_category] * padding_len
             target_semantic_categories = target_semantic_categories + [pad_semantic_category] * padding_len
-        
+
+        # --- DEĞİŞİKLİK: Son aşamada tüm token ID'lerini clamp et ---
+        # Clamp all token IDs to be within the valid vocabulary range
+        input_ids = [max(0, min(token_id, self.vocab_size - 1)) for token_id in input_ids]
+        target_ids = [max(0, min(token_id, self.vocab_size - 1)) for token_id in target_ids]
+        # --- BİTTİ ---
+
         result = {
             'input_ids': torch.tensor(input_ids, dtype=torch.long),
             'target_ids': torch.tensor(target_ids, dtype=torch.long),
