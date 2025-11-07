@@ -406,13 +406,13 @@ def main():
                        help='MC4 corpus size in GB (default: 0.75)')
     parser.add_argument('--wikipedia-size', type=float, default=0.75,
                        help='Wikipedia corpus size in GB (default: 0.75)')
-    parser.add_argument('--corpus-file', type=str, default='data/corpus_combined.txt',
+    parser.add_argument('--corpus-file', type=str, default='data/turkish_corpus/turkish_corpus_phase1.txt',
                        help='Combined corpus file path')
     
     # Preprocessing
     parser.add_argument('--preprocess', action='store_true',
                        help='Preprocess corpus with morphological analysis')
-    parser.add_argument('--preprocessed-file', type=str, default='data/corpus_morpho_processed.txt',
+    parser.add_argument('--preprocessed-file', type=str, default='data/turkish_corpus/turkish_corpus_morpho_processed.txt',
                        help='Preprocessed corpus file path')
     parser.add_argument('--max-lines', type=int, default=None,
                        help='Maximum lines to process (None = all)')
@@ -462,10 +462,10 @@ def main():
         print("📥 Step 1: Downloading corpus...")
         print("")
         
-        mc4_file = 'data/mc4_turkish.txt'
-        wiki_file = 'data/wikipedia_turkish.txt'
+        mc4_file = 'data/turkish_corpus/mc4_turkish.txt'
+        wiki_file = 'data/turkish_corpus/wikipedia_turkish.txt'
         
-        os.makedirs('data', exist_ok=True)
+        os.makedirs('data/turkish_corpus', exist_ok=True)
         
         # Download MC4
         if not os.path.exists(mc4_file) or os.path.getsize(mc4_file) < 1000:
@@ -515,8 +515,36 @@ def main():
         print("🔤 Step 3: Training MorphoPiece tokenizer...")
         print("")
         
-        # Determine input file (preprocessed if exists, otherwise raw)
-        training_file = args.preprocessed_file if os.path.exists(args.preprocessed_file) else args.corpus_file
+        # First check if prepare_real_dataset.py output exists
+        real_corpus_file = 'data/turkish_corpus/turkish_corpus_phase1.txt'
+        real_corpus_jsonl = 'data/turkish_corpus/turkish_corpus_phase1.jsonl'
+        
+        # Priority order: real corpus JSONL > real corpus TXT > preprocessed > raw corpus
+        if os.path.exists(real_corpus_jsonl):
+            # Extract text from JSONL format
+            import json
+            temp_txt_file = 'data/turkish_corpus/temp_corpus_from_jsonl.txt'
+            print(f"📝 Extracting text from JSONL corpus: {real_corpus_jsonl}")
+            
+            with open(real_corpus_jsonl, 'r', encoding='utf-8') as f_in:
+                with open(temp_txt_file, 'w', encoding='utf-8') as f_out:
+                    for line in f_in:
+                        try:
+                            data = json.loads(line)
+                            text = data.get('text', '')
+                            if text.strip():
+                                f_out.write(text + '\n')
+                        except json.JSONDecodeError:
+                            continue
+            
+            training_file = temp_txt_file
+            print(f"✅ Extracted {temp_txt_file} for training")
+        elif os.path.exists(real_corpus_file):
+            training_file = real_corpus_file
+            print(f"✅ Using real corpus file: {training_file}")
+        else:
+            # Determine input file (preprocessed if exists, otherwise raw)
+            training_file = args.preprocessed_file if os.path.exists(args.preprocessed_file) else args.corpus_file
         
         if not os.path.exists(training_file):
             print(f"❌ Training corpus not found: {training_file}")
