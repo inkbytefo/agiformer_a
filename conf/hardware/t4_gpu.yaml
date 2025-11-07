@@ -1,0 +1,8 @@
+// Developer: inkbytefo
+// Modified: 2025-11-07
+# @package _group_
+
+device: "cuda"
+use_amp: true
+# PyTorch 2.0+ için bellek parçalanmasını azaltan ayar
+pytorch_cuda_alloc_conf: 'backend:expandable_segments'

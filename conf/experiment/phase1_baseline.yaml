@@ -1,0 +1,37 @@
+// Developer: inkbytefo
+// Modified: 2025-11-07
+# @package _global_
+
+defaults:
+  - override /base/model: default
+  - override /base/training: default
+  - override /base/data: default
+  - override /base/hardware: t4_gpu # T4 GPU ayarlarını kullan
+  - _self_
+
+run_name: "phase1_baseline_morpho_OFF_${now:%Y%m%d_%H%M%S}"
+
+logging:
+  use_wandb: true
+  wandb_tags: ["phase1", "baseline", "morpho-off"]
+  wandb_notes: "Control group experiment. Standard Transformer-like model without morphological enrichment."
+
+model:
+  d_model: 512
+  n_layers: 8
+  n_heads: 8
+  d_ff: 2048
+  max_seq_len: 512
+  # --- KONTROL GRUBU AYARLARI ---
+  use_agglutinative_attention: false
+  language_expert:
+    use_morpho_semantic_embeddings: false
+
+training:
+  batch_size: 32 # T4 için optimize edilmiş
+  epochs: 3
+  max_steps: 30000
+  learning_rate: 3e-4
+  warmup_steps: 1000
+  use_gradient_checkpointing: true # Bellek kullanımı için kritik
+  checkpoint_dir: "checkpoints/phase1_baseline"

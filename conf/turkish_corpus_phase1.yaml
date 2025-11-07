@@ -1,7 +1,0 @@
-// Developer: inkbytefo
-// Modified: 2025-11-07
-
-# This file acts as a top-level pointer to the detailed data config.
-# It allows `data: turkish_corpus_phase1` to resolve correctly in the main config.
-defaults:
-  - data/turkish_corpus_phase1

@@ -1,0 +1,25 @@
+// Developer: inkbytefo
+// Modified: 2025-11-07
+# @package _group_
+
+# Varsayılan eğitim parametreleri
+batch_size: 8
+epochs: 10
+max_steps: null # Sınırsız
+gradient_accumulation_steps: 1
+learning_rate: 1e-4
+warmup_steps: 2000
+optimizer: "adamw"
+adam_beta1: 0.9
+adam_beta2: 0.98
+adam_epsilon: 1e-9
+weight_decay: 0.01
+use_amp: false
+use_gradient_checkpointing: false
+
+# Loglama ve Kaydetme
+log_interval: 100
+eval_interval: 1000
+save_interval: 5000
+checkpoint_dir: "checkpoints"
+keep_last_n_checkpoints: 3
