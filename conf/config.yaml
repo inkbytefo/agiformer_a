@@ -27,6 +27,7 @@ debug: false
 data:
   data_dir: null
   data_path: null
+  val_data_path: null
   train_split: 0.9
   num_workers: 4
   pin_memory: true
