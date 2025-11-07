@@ -47,7 +47,6 @@ logs/
 wandb/
 
 # Data
-data/
 *.csv
 *.json
 
