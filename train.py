@@ -138,119 +138,7 @@ def validate_epoch(model, dataloader, criterion, device, use_amp, is_multimodal)
     return total_loss / len(dataloader)
 
 
-def train_epoch(model, dataloader, optimizer, criterion, device, use_amp, metrics_logger, 
-               step_offset, is_multimodal, pseudo_labeler=None):
-    model.train()
-    total_loss = 0
-    try:
-        scaler = torch.amp.GradScaler(enabled=use_amp)
-    except AttributeError:
-        # Fallback for older PyTorch versions
-        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
-
-    for batch_idx, batch in enumerate(dataloader):
-        model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
-
-        with torch.amp.autocast(device_type=device.type, enabled=use_amp):
-            logits, info = model(**model_inputs)
-            loss = criterion(logits.view(-1, logits.size(-1)), target_ids.view(-1))
-            total_loss_batch = loss
-            
-            # Add MoE load balancing loss
-            for block_info in info.get('blocks', []):
-                if 'moe' in block_info and 'load_balancing_loss' in block_info['moe']['router_info']:
-                    total_loss_batch += block_info['moe']['router_info']['load_balancing_loss'].detach()
-
-            # Add relation and task losses with pseudo-labeler
-            relation_loss = 0.0
-            task_loss = 0.0
-            if pseudo_labeler and info.get('blocks'):
-                for block_info in info['blocks']:
-                    # NeuroSymbolicExpert relation loss
-                    if 'experts' in block_info:
-                        for expert_name, expert_info in block_info['experts'].items():
-                            if expert_name == 'neuro_symbolic' and 'expert_info' in expert_info:
-                                ns_info = expert_info['expert_info']
-                                if 'relation_logits' in ns_info and 'classified_edges' in ns_info:
-                                    rel_logits = ns_info['relation_logits']
-                                    rel_edges = ns_info['classified_edges']
-
-                                    # Generate pseudo-labels (simplified)
-                                    if hasattr(model, 'tokenizer') and model.tokenizer:
-                                        try:
-                                            batch_tokens = []
-                                            for seq in model_inputs['input_ids'][:1]:
-                                                tokens = []
-                                                for token_id in seq:
-                                                    if token_id.item() < model.tokenizer.vocab_size:
-                                                        tokens.append(str(token_id.item()))
-                                                    else:
-                                                        tokens.append("[UNK]")
-                                                batch_tokens.append(tokens)
-                                            if batch_tokens:
-                                                pseudo_labels = pseudo_labeler.generate_labels(
-                                                    batch_tokens[0],
-                                                    torch.randn(len(batch_tokens[0]), model.d_model).to(device)
-                                                )
-
-                                                target_labels = []
-                                                for edge in rel_edges:
-                                                    if tuple(edge) in pseudo_labels:
-                                                        target_labels.append(pseudo_labels[tuple(edge)])
-                                                    else:
-                                                        target_labels.append(0)
-
-                                                if target_labels:
-                                                    target_labels = torch.tensor(target_labels, device=device)
-                                                    rel_criterion = nn.CrossEntropyLoss()
-                                                    relation_loss += rel_criterion(rel_logits, target_labels)
-                                        except Exception:
-                                            pass
-
-                    # Task classification loss
-                    if 'moe' in block_info and 'task_logits' in block_info['moe']:
-                        task_logits = block_info['moe']['task_logits']
-                        try:
-                            batch_tokens = []
-                            for seq in model_inputs['input_ids'][:1]:
-                                tokens = []
-                                for token_id in seq:
-                                    if token_id.item() < model.tokenizer.vocab_size:
-                                        tokens.append(str(token_id.item()))
-                                    else:
-                                        tokens.append("[UNK]")
-                                batch_tokens.append(tokens)
-
-                            if batch_tokens:
-                                task_label = pseudo_labeler.classify_task_type(batch_tokens[0])
-                                task_labels = torch.tensor([task_label], device=device)
-
-                                task_criterion = nn.CrossEntropyLoss()
-                                task_loss += task_criterion(task_logits[:1], task_labels)
-                        except Exception:
-                            pass
-
-            # Add auxiliary losses to main loss
-            total_loss_batch += relation_loss * 0.1
-            total_loss_batch += task_loss * 0.05
-
-        optimizer.zero_grad()
-        scaler.scale(total_loss_batch).backward()
-        scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        scaler.step(optimizer)
-        scaler.update()
-
-        total_loss += loss.item()
-        current_step = step_offset + batch_idx
-        if metrics_logger and batch_idx % 10 == 0:
-            metrics_logger.log_training_metrics(current_step, loss.item(), info)
-        if batch_idx % 50 == 0:
-            if torch.cuda.is_available():
-                print(f"GPU Memory: {torch.cuda.memory_allocated()/1e9:.2f}GB used")
-            print(f"Batch {batch_idx}, Loss: {loss.item():.4f}, Step: {current_step}")
-
-    return total_loss / len(dataloader), current_step + 1
+# This function is no longer needed as its logic is integrated into the main loop.
 
 
 def create_dataset(data_dir, data_path, model_config, train_split, tokenizer=None) -> Tuple[Dataset, Dataset, bool]:
@@ -477,35 +365,65 @@ def main(cfg: DictConfig) -> None:
 
     try:
         for epoch in range(cfg.training.epochs):
-            if cfg.training.max_steps and global_step >= cfg.training.max_steps:
-                logger.info(f"Reached max_steps ({cfg.training.max_steps}). Stopping training.")
-                break
-
             logger.info(f"\nEpoch {epoch + 1}/{cfg.training.epochs}")
-            avg_loss, end_step = train_epoch(
-                model, train_loader, optimizer, criterion, device,
-                cfg.training.use_amp, metrics_logger, global_step, is_multimodal, pseudo_labeler
-            )
-            global_step = end_step
+            model.train()
+            
+            try:
+                scaler = torch.amp.GradScaler(enabled=cfg.training.use_amp)
+            except AttributeError:
+                scaler = torch.cuda.amp.GradScaler(enabled=cfg.training.use_amp)
 
-            # Validation
-            val_loss = validate_epoch(model, val_loader, criterion, device, cfg.training.use_amp, is_multimodal)
-            scheduler.step()
+            for batch_idx, batch in enumerate(train_loader):
+                global_step += 1
 
-            if metrics_logger:
-                metrics_logger.log_validation_metrics(end_step, val_loss, {})
+                model_inputs, target_ids = prepare_batch_data(batch, device, is_multimodal)
 
-            # Save checkpoint
-            is_best = val_loss < best_val_loss
-            if is_best:
-                best_val_loss = val_loss
+                with torch.amp.autocast(device_type=device.type, enabled=cfg.training.use_amp):
+                    logits, info = model(**model_inputs)
+                    loss = criterion(logits.view(-1, logits.size(-1)), target_ids.view(-1))
+                
+                optimizer.zero_grad()
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                scaler.step(optimizer)
+                scaler.update()
+                scheduler.step()
 
-            checkpoint_manager.save_checkpoint(
-                end_step, model, optimizer, scheduler,
-                {'val_loss': val_loss, 'epoch': epoch}, is_best
-            )
+                if metrics_logger and global_step % cfg.training.log_interval == 0:
+                    metrics_logger.log_training_metrics(global_step, loss.item(), info)
+                    logger.info(f"Step {global_step}, Loss: {loss.item():.4f}")
 
-            logger.info(f"Epoch {epoch + 1} completed: Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
+                if global_step % cfg.training.eval_interval == 0:
+                    val_loss = validate_epoch(model, val_loader, criterion, device, cfg.training.use_amp, is_multimodal)
+                    model.train()
+                    if metrics_logger:
+                        metrics_logger.log_validation_metrics(global_step, val_loss, {})
+                    
+                    is_best = val_loss < best_val_loss
+                    if is_best:
+                        best_val_loss = val_loss
+                    
+                    logger.info(f"Step {global_step}: Validation Loss: {val_loss:.4f} {'(Best)' if is_best else ''}")
+                    
+                    if is_best:
+                         checkpoint_manager.save_checkpoint(
+                            global_step, model, optimizer, scheduler,
+                            {'val_loss': val_loss, 'epoch': epoch}, is_best=True
+                        )
+
+                if global_step % cfg.training.save_interval == 0:
+                    checkpoint_manager.save_checkpoint(
+                        global_step, model, optimizer, scheduler,
+                        {'val_loss': best_val_loss, 'epoch': epoch}, is_best=False
+                    )
+
+                if cfg.training.max_steps and global_step >= cfg.training.max_steps:
+                    logger.info(f"Reached max_steps ({cfg.training.max_steps}). Stopping training.")
+                    break
+            
+            if cfg.training.max_steps and global_step >= cfg.training.max_steps:
+                break
 
     except KeyboardInterrupt:
         logger.info("\nTraining interrupted by user.")
