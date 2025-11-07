@@ -308,9 +308,28 @@ def main(cfg: DictConfig) -> None:
         device = torch.device(cfg.hardware.device)
 
     logger.info(f"Using device: {device}")
-    if torch.cuda.is_available():
-        logger.info(f"GPU: {torch.cuda.get_device_name()}")
-        logger.info(f"CUDA version: {torch.version.cuda}")
+
+    # Defensive CUDA allocator + device init:
+    # If PYTORCH_CUDA_ALLOC_CONF is malformed for this PyTorch build, trigger it here
+    # and fall back cleanly instead of crashing later in training.
+    if torch.cuda.is_available() and device.type == "cuda":
+        final_alloc = os.environ.get("PYTORCH_CUDA_ALLOC_CONF")
+        logger.info(f"Final PYTORCH_CUDA_ALLOC_CONF seen by PyTorch: {final_alloc!r}")
+        try:
+            # Force lazy init; allocator parse errors will surface here.
+            _ = torch.cuda.device_count()
+            logger.info(f"GPU: {torch.cuda.get_device_name()}")
+            logger.info(f"CUDA version: {torch.version.cuda}")
+        except Exception as e:
+            logger.error(
+                f"CUDA initialization failed with PYTORCH_CUDA_ALLOC_CONF={final_alloc!r}; "
+                f"clearing it and falling back to CPU. Error: {e}"
+            )
+            os.environ.pop("PYTORCH_CUDA_ALLOC_CONF", None)
+            device = torch.device("cpu")
+            logger.warning("Using CPU due to CUDA allocator/device initialization failure")
+    else:
+        logger.info("CUDA not available or not selected; running on CPU")
 
     # Initialize Weights & Biases if enabled
     if cfg.logging.use_wandb:
