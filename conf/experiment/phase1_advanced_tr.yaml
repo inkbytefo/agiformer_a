@@ -1,6 +1,11 @@
 ## Developer: inkbytefo
-## Modified: 2025-11-07
-# @package experiment
+## Modified: 2025-11-08
+# @package _global_
+
+# Bu deney, t4_gpu donanım yapılandırmasını temel alır.
+defaults:
+  - override /hardware: t4_gpu
+  - _self_
 
 run_name: "phase1_advanced_tr_morpho_ON_${now:%Y%m%d_%H%M%S}"
 
@@ -21,10 +26,10 @@ model:
     use_morpho_semantic_embeddings: true
 
 training:
-  batch_size: 32 # T4 için optimize edilmiş
+  batch_size: 32
   epochs: 3
   max_steps: 30000
   learning_rate: 3e-4
   warmup_steps: 1000
-  use_gradient_checkpointing: true # Bellek kullanımı için kritik
+  use_gradient_checkpointing: true
   checkpoint_dir: "checkpoints/phase1_advanced_tr"

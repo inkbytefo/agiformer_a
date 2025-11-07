@@ -180,11 +180,16 @@ def create_dataset(data_dir, data_path, model_config, train_split, tokenizer=Non
     # Check for Turkish text dataset (JSONL with morpho_types)
     if data_path and Path(data_path).exists() and Path(data_path).suffix == '.jsonl':
         print(f"Loading Turkish text dataset from: {data_path}")
+
+        # <-- DEĞİŞİKLİK: vocab_size'ı tokenizer'dan alarak ilet
+        dataset_vocab_size = tokenizer.vocab_size if tokenizer else model_config.get('vocab_size', 32000)
+
         train_dataset = TurkishTextDataset(
             corpus_file=data_path,
             tokenizer=tokenizer,
             max_seq_len=model_config['max_seq_len'],
-            is_jsonl=True
+            is_jsonl=True,
+            vocab_size=dataset_vocab_size # <-- BURAYI GÜNCELLE
         )
         
         # Split into train and validation
