@@ -1,5 +1,5 @@
 ## Developer: inkbytefo
-## Modified: 2025-11-08
+## Modified: 2025-11-07
 # @package _global_
 
 # @package _global_
@@ -19,13 +19,15 @@ model:
   n_layers: 4
   n_heads: 4
   d_ff: 1024
+  n_experts: 4  # CRITICAL FIX: Match available expert types
+  expert_types: ["language", "logic", "spatial", "causal"]  # CRITICAL FIX: Match n_experts
   max_seq_len: 256
   use_agglutinative_attention: true
   language_expert:
     use_morpho_semantic_embeddings: true
 
 training:
-  batch_size: 32
+  batch_size: 8  # Reduced for stability
   epochs: 3
   max_steps: 30000
   learning_rate: 3e-4

@@ -1,3 +1,5 @@
+## Developer: inkbytefo
+## Modified: 2025-11-07
 """
 Mixture of Experts (MoE) System
 Dynamically routes inputs to specialized expert networks
@@ -136,11 +138,11 @@ class MixtureOfExperts(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.n_experts = n_experts
-        self.k = k
+        self.k = min(k, n_experts)  # Ensure k doesn't exceed n_experts
         self.d_ff = d_ff or (d_model * 4)
         
         # Router
-        self.router = ExpertRouter(d_model, n_experts, k, load_balancing_loss_weight)
+        self.router = ExpertRouter(d_model, n_experts, self.k, load_balancing_loss_weight)
         
         # Experts
         if custom_experts is not None:
@@ -206,19 +208,29 @@ class MixtureOfExperts(nn.Module):
         # Stack expert outputs: [n_experts, batch, seq_len, d_model]
         expert_outputs = torch.stack(expert_outputs, dim=0)
         
-        # Gather outputs for top-k experts
+        # Gather outputs for top-k experts with proper bounds checking
         # expert_indices: [batch, seq_len, k]
         batch_indices = torch.arange(batch_size, device=hidden_states.device).view(batch_size, 1, 1).expand(-1, seq_len, self.k)
         seq_indices = torch.arange(seq_len, device=hidden_states.device).view(1, seq_len, 1).expand(batch_size, -1, self.k)
 
-        # Gather: [batch, seq_len, k, d_model]
-        gathered_outputs = expert_outputs[expert_indices, batch_indices, seq_indices]
+        # CRITICAL FIX: Add bounds checking to prevent out-of-bounds indices
+        # Clamp expert_indices to valid range [0, n_experts-1]
+        safe_expert_indices = torch.clamp(expert_indices, 0, self.n_experts - 1)
         
-        # Apply weights: [batch, seq_len, k, d_model]
-        weighted_outputs = gathered_outputs * expert_weights.unsqueeze(-1)
+        # Gather: [batch, seq_len, k, d_model]
+        gathered_outputs = expert_outputs[safe_expert_indices, batch_indices, seq_indices]
+        
+        # Create a mask for valid indices (where we didn't need to clamp)
+        valid_mask = (expert_indices == safe_expert_indices)
+        
+        # Apply weights with mask: [batch, seq_len, k, d_model]
+        weighted_outputs = gathered_outputs * expert_weights.unsqueeze(-1) * valid_mask.unsqueeze(-1)
         
         # Sum over k experts: [batch, seq_len, d_model]
         output = weighted_outputs.sum(dim=2)
+        
+        # Apply dropout to output for regularization
+        output = F.dropout(output, p=0.1, training=self.training)
         
         # Residual connection
         output = output + hidden_states
@@ -226,7 +238,8 @@ class MixtureOfExperts(nn.Module):
         expert_info = {
             'router_info': router_info,
             'num_active_experts': expert_indices.size(-1),
-            'expert_details': expert_infos
+            'expert_details': expert_infos,
+            'valid_indices_ratio': valid_mask.float().mean().item()
         }
         
         return output, expert_info

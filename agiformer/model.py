@@ -1,5 +1,5 @@
 ## Developer: inkbytefo
-## Modified: 2025-11-03
+## Modified: 2025-11-07
 """
 AGIFORMER: Main Model Architecture
 Enhanced for Gözlemci phase - MoE + Memory + Introspection + Multimodal activated
@@ -41,6 +41,9 @@ class AGIFORMERBlock(nn.Module):
         self.d_model = d_model
         self.use_introspection = use_introspection
         self.use_agglutinative_attention = use_agglutinative_attention
+        # CRITICAL FIX: Ensure k doesn't exceed n_experts
+        self.n_experts = n_experts
+        self.k = min(2, n_experts)  # Top-k should not exceed number of experts
 
         if use_linear_attention:
             self.attention = LinearAttention(d_model, n_heads, dropout)
@@ -73,7 +76,7 @@ class AGIFORMERBlock(nn.Module):
             else: custom_experts.append(Expert(d_model, d_ff, dropout))
 
         self.moe = MixtureOfExperts(
-            d_model, n_experts, d_ff, k=2, dropout=dropout,
+            d_model, n_experts, d_ff, k=self.k, dropout=dropout,
             custom_experts=custom_experts if custom_experts else None
         )
 
@@ -94,7 +97,7 @@ class AGIFORMERBlock(nn.Module):
                 mapping.append(EXPERT_DOMAINS["SYMBOLIC"])
             else:
                 mapping.append(EXPERT_DOMAINS["LINGUISTIC"]) # Varsayılan
-        return torch.tensor(mapping, dtype=torch.long)
+        return torch.tensor(mapping[:self.n_experts], dtype=torch.long)  # Ensure mapping matches n_experts
         
     def forward(
         self,
@@ -110,7 +113,7 @@ class AGIFORMERBlock(nn.Module):
 
         # 2. Router için bir bias oluştur
         # Her uzman için, tahmin edilen görev türüyle ne kadar uyumlu olduğuna dair bir skor
-        routing_bias = torch.zeros(x.size(0), len(self.expert_to_domain_map), device=x.device)
+        routing_bias = torch.zeros(x.size(0), self.n_experts, device=x.device)  # Ensure correct size
 
         # Uzman-alan haritasını cihaza taşı
         self.expert_to_domain_map = self.expert_to_domain_map.to(x.device)
@@ -169,6 +172,9 @@ class AGIFORMER(nn.Module):
         self.max_seq_len = max_seq_len
         self.use_gradient_checkpointing = use_gradient_checkpointing # <-- DEĞİŞİKLİK: Değeri sakla
         self.use_agglutinative_attention = use_agglutinative_attention
+        # CRITICAL FIX: Ensure expert configuration is consistent
+        self.n_experts = n_experts
+        self.k = min(2, n_experts)  # Top-k selection should not exceed available experts
 
         # Token embedding layer (MorphoPiece sadece tokenization yapıyor)
         self.token_embedding = nn.Embedding(self.vocab_size, d_model)
@@ -179,7 +185,11 @@ class AGIFORMER(nn.Module):
         if use_memory: self.memory = UnifiedMemoryBackbone(d_model, memory_size, max_seq_len // 2, 10)
         else: self.memory = None
         
-        if expert_types is None: expert_types = ['language', 'logic', 'spatial', 'causal'][:n_experts]
+        # CRITICAL FIX: Ensure expert_types matches n_experts
+        if expert_types is None:
+            expert_types = ['language', 'logic', 'spatial', 'causal'][:n_experts]
+        else:
+            expert_types = expert_types[:n_experts]  # Truncate to n_experts
 
         # Global Bilgi Grafiğini burada oluştur
         self.global_knowledge_graph = GlobalKnowledgeGraph(num_concepts=1024, d_model=d_model, num_relations=NUM_RELATIONS)
