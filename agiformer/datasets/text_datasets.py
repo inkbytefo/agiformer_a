@@ -139,21 +139,32 @@ class TurkishTextDataset(Dataset):
                         # Try to encode as single token
                         ids = self.tokenizer.encode(token, out_type=int)
                         if ids:
-                            token_ids.extend(ids)
+                            # Clamp IDs to valid vocabulary range
+                            valid_ids = []
+                            for token_id in ids:
+                                if 0 <= token_id < self.vocab_size:
+                                    valid_ids.append(token_id)
+                                else:
+                                    # Use UNK for out-of-vocabulary tokens
+                                    valid_ids.append(self.tokenizer.unk_id())
+                            
+                            token_ids.extend(valid_ids)
                             # If token maps to multiple IDs, extend morpho_types and semantic_categories accordingly
-                            if len(ids) > 1:
+                            if len(valid_ids) > 1:
                                 last_morpho = morpho_types_list[-1] if morpho_types_list else 3
                                 last_semantic = semantic_categories_list[-1] if semantic_categories_list else 11
-                                morpho_types_list.extend([last_morpho] * (len(ids) - 1))
-                                semantic_categories_list.extend([last_semantic] * (len(ids) - 1))
+                                morpho_types_list.extend([last_morpho] * (len(valid_ids) - 1))
+                                semantic_categories_list.extend([last_semantic] * (len(valid_ids) - 1))
                         else:
                             # Fallback: use UNK
-                            token_ids.append(self.tokenizer.unk_id())
+                            unk_id = self.tokenizer.unk_id()
+                            token_ids.append(unk_id if unk_id < self.vocab_size else 0)
                             morpho_types_list.append(3)  # Other
                             semantic_categories_list.append(11)  # belirsiz
                     except:
                         # Fallback: use UNK
-                        token_ids.append(self.tokenizer.unk_id())
+                        unk_id = self.tokenizer.unk_id()
+                        token_ids.append(unk_id if unk_id < self.vocab_size else 0)
                         morpho_types_list.append(3)  # Other
                         semantic_categories_list.append(11)  # belirsiz
                 else:
@@ -165,7 +176,16 @@ class TurkishTextDataset(Dataset):
             # Text format: tokenize normally
             text = data if isinstance(data, str) else ""
             if self.tokenizer:
-                token_ids = self.tokenizer.encode(text, out_type=int)
+                raw_ids = self.tokenizer.encode(text, out_type=int)
+                # Clamp IDs to valid vocabulary range
+                token_ids = []
+                for token_id in raw_ids:
+                    if 0 <= token_id < self.vocab_size:
+                        token_ids.append(token_id)
+                    else:
+                        # Use UNK for out-of-vocabulary tokens
+                        unk_id = self.tokenizer.unk_id()
+                        token_ids.append(unk_id if unk_id < self.vocab_size else 0)
             else:
                 # Fallback to character encoding
                 token_ids = [ord(c) % self.vocab_size for c in text[:self.max_seq_len]]
@@ -334,7 +354,17 @@ class TextDataset(Dataset):
         text = self.texts[idx]
         
         # Tokenize text using the tokenizer
-        token_ids = self.tokenizer.encode(text, out_type=int)
+        raw_ids = self.tokenizer.encode(text, out_type=int)
+        
+        # Clamp IDs to valid vocabulary range
+        token_ids = []
+        for token_id in raw_ids:
+            if 0 <= token_id < self.tokenizer.vocab_size():
+                token_ids.append(token_id)
+            else:
+                # Use UNK for out-of-vocabulary tokens
+                unk_id = self.tokenizer.unk_id()
+                token_ids.append(unk_id if unk_id < self.tokenizer.vocab_size() else 0)
         
         # Truncate if needed
         if len(token_ids) > self.max_seq_len:
