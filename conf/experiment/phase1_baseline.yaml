@@ -17,8 +17,6 @@ model:
   max_seq_len: 512
   # --- KONTROL GRUBU AYARLARI ---
   use_agglutinative_attention: false
-  language_expert:
-    use_morpho_semantic_embeddings: false
 
 training:
   batch_size: 32 # T4 için optimize edilmiş
