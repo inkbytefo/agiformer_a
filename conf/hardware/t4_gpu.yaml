@@ -22,9 +22,10 @@ persistent_workers: true
 
 # Batch size optimization for T4
 training:
-  batch_size: 16
-  gradient_accumulation_steps: 2
+  batch_size: 4
+  gradient_accumulation_steps: 8
   use_gradient_checkpointing: true
+  max_grad_norm: 0.5  # Reduce gradient norm to prevent memory spikes
 
 # T4-specific model settings
 model:
