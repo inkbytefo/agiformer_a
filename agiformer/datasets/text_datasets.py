@@ -141,12 +141,13 @@ class TurkishTextDataset(Dataset):
                         if ids:
                             # Clamp IDs to valid vocabulary range
                             valid_ids = []
+                            unk_id = self.tokenizer.unk_id() if self.tokenizer.unk_id() < self.vocab_size else 0
                             for token_id in ids:
                                 if 0 <= token_id < self.vocab_size:
                                     valid_ids.append(token_id)
                                 else:
                                     # Use UNK for out-of-vocabulary tokens
-                                    valid_ids.append(self.tokenizer.unk_id())
+                                    valid_ids.append(unk_id)
                             
                             token_ids.extend(valid_ids)
                             # If token maps to multiple IDs, extend morpho_types and semantic_categories accordingly
