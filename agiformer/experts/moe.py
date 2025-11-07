@@ -208,9 +208,9 @@ class MixtureOfExperts(nn.Module):
         
         # Gather outputs for top-k experts
         # expert_indices: [batch, seq_len, k]
-        batch_indices = torch.arange(batch_size, device=hidden_states.device).unsqueeze(1).unsqueeze(2)
-        seq_indices = torch.arange(seq_len, device=hidden_states.device).unsqueeze(0).unsqueeze(2)
-        
+        batch_indices = torch.arange(batch_size, device=hidden_states.device).view(batch_size, 1, 1).expand(-1, seq_len, self.k)
+        seq_indices = torch.arange(seq_len, device=hidden_states.device).view(1, seq_len, 1).expand(batch_size, -1, self.k)
+
         # Gather: [batch, seq_len, k, d_model]
         gathered_outputs = expert_outputs[expert_indices, batch_indices, seq_indices]
         
