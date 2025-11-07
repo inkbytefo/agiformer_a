@@ -28,7 +28,7 @@ model:
 
 # Override training settings for Phase 1
 training:
-  batch_size: 4   # Further reduced for T4 memory
+  batch_size: 2   # Further reduced for T4 memory (overridden for CUDA OOM fix)
   learning_rate: 0.0001
   warmup_steps: 1000
   max_steps: 10000
@@ -37,6 +37,7 @@ training:
   log_interval: 100
   save_interval: 1000
   gradient_accumulation_steps: 8  # Further increase to compensate for smaller batch size
+  use_gradient_checkpointing: true  # Explicitly enabled to prevent CUDA OOM
 
 # Experiment metadata
 experiment_name: phase1_lite
