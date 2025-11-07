@@ -2,9 +2,9 @@
 ## Modified: 2025-11-08
 # @package _global_
 
-# Bu deney, t4_gpu donanım yapılandırmasını temel alır.
+# @package _global_
+
 defaults:
-  - override hardware: t4_gpu
   - _self_
 
 run_name: "phase1_advanced_tr_morpho_ON_${now:%Y%m%d_%H%M%S}"
