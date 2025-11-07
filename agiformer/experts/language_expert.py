@@ -120,10 +120,15 @@ class LanguageExpert(nn.Module):
         residual = hidden_states
 
         if self.use_agglutinative_attention:
+            # Use clamped morpho_types to prevent any potential indexing issues
+            morpho_types_for_attention = morpho_types_clamped if (
+                self.use_morpho_semantic_embeddings and morpho_types is not None
+            ) else morpho_types
+            
             attn_output, _ = self.attention(
                 hidden_states=self.norm1(hidden_states),
                 attention_mask=attention_mask,
-                morpho_types=morpho_types,
+                morpho_types=morpho_types_for_attention,
             )
         else:
             attn_output = self.attention(
