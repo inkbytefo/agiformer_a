@@ -213,6 +213,14 @@ class AGIFORMER(nn.Module):
             model_info['modalities'] = list(modality_embeds.keys())
         elif input_ids is not None:
             # Input_ids zaten tokenize edilmiş, embedding'e çevir
+            # --- DEĞİŞİKLİK: Hatalı token ID'lerini yakalamak için doğrulama ---
+            if not (input_ids.max() < self.vocab_size and input_ids.min() >= 0):
+                invalid_ids = input_ids[input_ids >= self.vocab_size]
+                raise ValueError(
+                    f"input_ids contains tokens out of bounds. "
+                    f"Vocab size is {self.vocab_size}, but found token(s): {invalid_ids.unique().tolist()}"
+                )
+            # --- BİTTİ ---
             x = self.token_embedding(input_ids)  # Token embedding
             model_info['multimodal'] = False
             model_info['tokenizer'] = 'morphopiece'
