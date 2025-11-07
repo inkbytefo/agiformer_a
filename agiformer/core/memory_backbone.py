@@ -24,8 +24,32 @@ class MemoryBank(nn.Module):
         self.write_head = nn.Sequential(nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, d_model))
         self.update_gate = nn.Sequential(nn.Linear(d_model * 2, 1), nn.Sigmoid())
     def read(self, query: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch_size, seq_len = query.size(0), query.size(1)
+        # Add input validation
+        if query.dim() != 3:
+            raise ValueError(f"Expected query to be 3D tensor, got {query.dim()}D")
+        
+        batch_size, seq_len, d_model = query.size()
+        
+        # Validate dimensions match
+        if d_model != self.d_model:
+            raise ValueError(f"Query d_model ({d_model}) doesn't match memory d_model ({self.d_model})")
+        
+        # Clamp seq_len to prevent out of bounds
+        max_seq_len = 1024  # Reasonable limit
+        if seq_len > max_seq_len:
+            query = query[:, :max_seq_len, :]
+            seq_len = max_seq_len
+        
         memory_expanded = self.memory.unsqueeze(0).expand(batch_size, -1, -1)
+        
+        # Add bounds checking before matrix multiplication
+        if memory_expanded.size(1) != self.memory_size:
+            raise ValueError(f"Memory size mismatch: expected {self.memory_size}, got {memory_expanded.size(1)}")
+        
+        # Ensure all tensors are on the same device
+        if query.device != memory_expanded.device:
+            memory_expanded = memory_expanded.to(query.device)
+        
         similarity = torch.matmul(query, memory_expanded.transpose(1, 2))
         attention_weights = F.softmax(similarity / math.sqrt(self.d_model), dim=-1)
         retrieved = torch.matmul(attention_weights, memory_expanded)
