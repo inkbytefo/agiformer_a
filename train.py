@@ -390,9 +390,11 @@ def main(cfg: DictConfig) -> None:
                 scaler.update()
                 scheduler.step()
 
+                # --- MODIFIED: Log every step for clarity, and use log_interval for detailed W&B logging ---
+                logger.info(f"Step {global_step}/{cfg.training.max_steps}, Loss: {loss.item():.4f}")
+
                 if metrics_logger and global_step % cfg.training.log_interval == 0:
                     metrics_logger.log_training_metrics(global_step, loss.item(), info)
-                    logger.info(f"Step {global_step}, Loss: {loss.item():.4f}")
 
                 if global_step % cfg.training.eval_interval == 0:
                     val_loss = validate_epoch(model, val_loader, criterion, device, cfg.training.use_amp, is_multimodal)
