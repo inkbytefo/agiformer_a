@@ -3,10 +3,10 @@
 # @package _global_
 
 defaults:
-  - base/model: default
-  - base/training: default
-  - base/data: default
-  - base/hardware: default
+  - model: default
+  - training: default
+  - data: default
+  - hardware: default
   - experiment: null # Deneyler opsiyoneldir, komut satırından seçilir
   - _self_
 
