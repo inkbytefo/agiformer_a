@@ -1,5 +1,5 @@
 # Developer: inkbytefo
-# Modified: 2025-11-06
+# Modified: 2025-11-07
 
 """
 Professional Training Script for AGIFORMER with Hydra Configuration
@@ -454,7 +454,7 @@ def main(cfg: DictConfig) -> None:
     global_step = 0
 
     try:
-        scaler = torch.cuda.amp.GradScaler(enabled=cfg.training.use_amp)
+        scaler = torch.amp.GradScaler(device.type, enabled=cfg.training.use_amp)
         for epoch in range(cfg.training.epochs):
             logger.info(f"\nEpoch {epoch + 1}/{cfg.training.epochs}")
             model.train()

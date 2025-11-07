@@ -1,5 +1,5 @@
 # Developer: inkbytefo
-# Modified: 2025-11-06
+# Modified: 2025-11-07
 
 # @package _group_
 
@@ -11,10 +11,10 @@ defaults:
 
 # Device settings
 device: cuda
-# Use PyTorch CUDA caching allocator with expandable segments backend (correct key:value syntax).
-# See: https://pytorch.org/docs/stable/memory_management.html#environment-variables
-# This fixes the previous malformed value that caused CUDA init failure and CPU fallback.
-pytorch_cuda_alloc_conf: "backend:expandable_segments"
+# Use PyTorch CUDA caching allocator with the modern cudaMallocAsync backend.
+# See: https://pytorch.org/docs/stable/memory_management.html#torch.cuda.memory.CUDAPluggableAllocator
+# This resolves the 'Unknown allocator backend' error.
+pytorch_cuda_alloc_conf: "backend:cudaMallocAsync"
 
 # Memory and performance settings
 use_amp: true
