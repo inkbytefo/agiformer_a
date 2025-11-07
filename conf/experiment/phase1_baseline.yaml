@@ -2,6 +2,11 @@
 ## Modified: 2025-11-08
 # @package _global_
 
+# Bu deney, t4_gpu donanım yapılandırmasını temel alır.
+defaults:
+  - override /hardware: t4_gpu
+  - _self_
+
 run_name: "phase1_baseline_morpho_OFF_${now:%Y%m%d_%H%M%S}"
 
 logging:
