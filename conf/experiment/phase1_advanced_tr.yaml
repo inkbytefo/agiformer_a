@@ -1,13 +1,6 @@
 // Developer: inkbytefo
 // Modified: 2025-11-07
-# @package _global_
-
-defaults:
-  - override /model: default
-  - override /training: default
-  - override /data: default
-  - override /hardware: t4_gpu # T4 GPU ayarlarını kullan
-  - _self_
+# @package experiment
 
 run_name: "phase1_advanced_tr_morpho_ON_${now:%Y%m%d_%H%M%S}"
 
