@@ -6,7 +6,7 @@ defaults:
   - override /base/model: default
   - override /base/training: default
   - override /base/data: default
-  - override /base/hardware: t4_gpu # T4 GPU ayarlarını kullan
+  - override /hardware: t4_gpu # T4 GPU ayarlarını kullan
   - _self_
 
 run_name: "phase1_advanced_tr_morpho_ON_${now:%Y%m%d_%H%M%S}"

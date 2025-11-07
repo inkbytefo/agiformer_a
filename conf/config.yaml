@@ -6,7 +6,7 @@ defaults:
   - base/model: default
   - base/training: default
   - base/data: default
-  - base/hardware: default
+  - hardware: default
   - _self_
 
 # Genel Çalışma Ayarları
