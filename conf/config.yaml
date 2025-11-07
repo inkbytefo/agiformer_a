@@ -1,13 +1,13 @@
 # Developer: inkbytefo
-# Modified: 2025-11-07
+# Modified: 2025-11-08
 # @package _global_
 
 defaults:
-  - model: default
-  - training: default
-  - data: default
-  - hardware: default
-  - experiment: null
+  - base/model: default
+  - base/training: default
+  - base/data: default
+  - base/hardware: default
+  - experiment: null # Deneyler opsiyoneldir, komut satırından seçilir
   - _self_
 
 # Genel Çalışma Ayarları

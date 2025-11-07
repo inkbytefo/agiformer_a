@@ -2,10 +2,6 @@
 ## Modified: 2025-11-08
 # @package _global_
 
-# Bu deney, t4_gpu donanım yapılandırmasını temel alır.
-defaults:
-  - override /hardware: t4_gpu
-
 run_name: "phase1_baseline_morpho_OFF_${now:%Y%m%d_%H%M%S}"
 
 logging:
@@ -19,8 +15,9 @@ model:
   n_heads: 8
   d_ff: 2048
   max_seq_len: 512
-  # --- KONTROL GRUBU AYARLARI ---
   use_agglutinative_attention: false
+  language_expert:
+    use_morpho_semantic_embeddings: false
 
 training:
   batch_size: 32

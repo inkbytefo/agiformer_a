@@ -2,10 +2,6 @@
 ## Modified: 2025-11-08
 # @package _global_
 
-# Bu deney, t4_gpu donanım yapılandırmasını temel alır.
-defaults:
-  - override /hardware: t4_gpu
-
 run_name: "phase1_advanced_tr_morpho_ON_${now:%Y%m%d_%H%M%S}"
 
 logging:
@@ -19,7 +15,6 @@ model:
   n_heads: 4
   d_ff: 1024
   max_seq_len: 256
-  # --- DENEY GRUBU AYARLARI ---
   use_agglutinative_attention: true
   language_expert:
     use_morpho_semantic_embeddings: true
