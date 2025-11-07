@@ -250,11 +250,56 @@ def main(cfg: DictConfig) -> None:
             torch.cuda.manual_seed(cfg.seed)
             torch.cuda.manual_seed_all(cfg.seed)
 
-    # Set up hardware
-    if cfg.hardware.pytorch_cuda_alloc_conf:
-        if 'PYTORCH_CUDA_ALLOC_CONF' not in os.environ:
-            os.environ['PYTORCH_CUDA_ALLOC_CONF'] = cfg.hardware.pytorch_cuda_alloc_conf
-            logger.info("Set PYTORCH_CUDA_ALLOC_CONF for better memory management")
+    # Set up hardware with safe allocator config handling
+    alloc_conf = None
+    if hasattr(cfg.hardware, "pytorch_cuda_alloc_conf") and cfg.hardware.pytorch_cuda_alloc_conf:
+        alloc_conf = str(cfg.hardware.pytorch_cuda_alloc_conf).strip()
+    env_alloc_conf = os.environ.get("PYTORCH_CUDA_ALLOC_CONF")
+
+    # Log incoming allocator settings before applying
+    logger.info(
+        f"Allocator config - from cfg: {alloc_conf!r}, "
+        f"from env: {env_alloc_conf!r}"
+    )
+
+    def _is_valid_alloc_conf(value: str) -> bool:
+        # Minimal defensive validation to avoid triggering known PyTorch parser bugs.
+        # Accept simple tokens like "expandable_segments" or key:value pairs
+        # without trailing commas or malformed segments.
+        v = (value or "").strip()
+        if not v:
+            return False
+        # quick reject for obviously broken patterns
+        if ",," in v or v.endswith(",") or "==" in v:
+            return False
+        # allow single token like "expandable_segments"
+        if ":" not in v and "," not in v:
+            return True
+        # for comma-separated key:value segments, require each to contain ':'
+        for seg in v.split(","):
+            seg = seg.strip()
+            if not seg:
+                return False
+            if ":" not in seg:
+                return False
+        return True
+
+    effective_alloc_conf = env_alloc_conf or alloc_conf
+    if effective_alloc_conf and _is_valid_alloc_conf(effective_alloc_conf):
+        os.environ["PYTORCH_CUDA_ALLOC_CONF"] = effective_alloc_conf
+        logger.info(
+            f"Using PYTORCH_CUDA_ALLOC_CONF={effective_alloc_conf!r} "
+            f"(source={'env' if env_alloc_conf else 'cfg'})"
+        )
+    elif effective_alloc_conf:
+        # Invalid config detected; do NOT propagate to PyTorch to avoid crashes
+        logger.warning(
+            f"Ignoring invalid PYTORCH_CUDA_ALLOC_CONF={effective_alloc_conf!r} "
+            f"(source={'env' if env_alloc_conf else 'cfg'}) to prevent allocator crash"
+        )
+        os.environ.pop("PYTORCH_CUDA_ALLOC_CONF", None)
+    else:
+        logger.info("No PYTORCH_CUDA_ALLOC_CONF configured; using PyTorch defaults")
 
     # Determine device
     if cfg.hardware.device == "auto":
