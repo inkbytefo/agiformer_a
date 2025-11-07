@@ -170,7 +170,7 @@ class NeuroSymbolicExpert(nn.Module):
         # Sınıflandırıcıdan gelen bilgileri dışarıya aktar
         expert_info = {
             "relation_logits": relation_logits,
-            "classified_edges": batch_edges  # Sınıflandırıcıya giden orijinal kenarlar
+            "classified_edges": torch.stack([b_idx, u_idx, v_idx], dim=1)  # [batch, u, v] formatında kenarlar
         }
 
         return output, expert_info
