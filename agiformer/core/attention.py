@@ -1,3 +1,5 @@
+## Developer: inkbytefo
+## Modified: 2025-11-07
 """
 Advanced Attention Mechanisms for AGIFORMER
 Includes standard, linear, syntax-aware, and cross-modal attention
@@ -49,7 +51,26 @@ class MultiHeadAttention(nn.Module):
         # Scaled dot-product attention
         scores = torch.matmul(Q, K.transpose(-2, -1)) / self.scale
         
+        # CRITICAL FIX: Properly handle attention mask dimensions
         if mask is not None:
+            # Ensure mask is properly sized for broadcasting
+            if mask.dim() == 1:  # [seq_len] - broadcast to all heads
+                # Expand to [batch, 1, seq_len_q, seq_len_k]
+                mask = mask.unsqueeze(0).unsqueeze(1).expand(batch_size, 1, seq_len_q, seq_len_k)
+            elif mask.dim() == 2:  # [batch, seq_len]
+                # Expand to [batch, 1, seq_len_q, seq_len_k]
+                mask = mask.unsqueeze(1).expand(batch_size, 1, seq_len_q, seq_len_k)
+            elif mask.dim() == 3:  # [batch, seq_len, seq_len] or similar
+                # Ensure the last two dimensions match seq_len_q and seq_len_k
+                if mask.size(1) != seq_len_q or mask.size(2) != seq_len_k:
+                    mask = mask[:, :seq_len_q, :seq_len_k]
+                # Expand to [batch, 1, seq_len_q, seq_len_k]
+                mask = mask.unsqueeze(1)
+            elif mask.dim() == 4:  # [batch, heads, seq_len, seq_len]
+                # Keep as is but ensure dimensions match
+                mask = mask[:, :, :seq_len_q, :seq_len_k]
+            
+            # Apply mask - scores should be [batch, n_heads, seq_len_q, seq_len_k]
             scores = scores.masked_fill(mask == 0, torch.finfo(scores.dtype).min)
         
         attn_weights = F.softmax(scores, dim=-1)
@@ -124,10 +145,15 @@ class LinearAttention(nn.Module):
         Z = torch.einsum('bhqd->bhq', Q_kernel).unsqueeze(-1)  # [batch, n_heads, seq_q, 1]
         output = output / (Z + self.eps)
         
-        # Masking
+        # CRITICAL FIX: Properly handle attention mask for linear attention
         if mask is not None:
-            mask = mask.unsqueeze(1).unsqueeze(1)  # [batch, 1, 1, seq_k]
-            output = output.masked_fill(mask == 0, 0)
+            if mask.dim() == 1:  # [seq_len]
+                mask = mask.unsqueeze(0).unsqueeze(1).expand(batch_size, self.n_heads, seq_len_q)
+            elif mask.dim() == 2:  # [batch, seq_len]
+                mask = mask.unsqueeze(1).expand(batch_size, self.n_heads, seq_len_q)
+            
+            # Apply mask to prevent attention to padded positions
+            output = output * mask.unsqueeze(-1)
         
         # Concatenate heads
         output = output.transpose(1, 2).contiguous().view(
@@ -210,4 +236,3 @@ class CrossModalAttention(nn.Module):
         # Fusion
         output = query_self + cross_output
         return output
-
