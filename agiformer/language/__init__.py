@@ -10,12 +10,10 @@ from .morpho_splitter import RegexSplitter as MorphoSplitter
 from .tokenizer import MorphoPiece
 from .grammar_engine import GrammarEngine
 from .attention import AgglutinativeAttention
-from .model import TMA1Model
 
 __all__ = [
     'MorphoSplitter',
     'MorphoPiece',
     'GrammarEngine',
     'AgglutinativeAttention',
-    'TMA1Model'
 ]

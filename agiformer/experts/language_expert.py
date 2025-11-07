@@ -1,24 +1,39 @@
 # Developer: inkbytefo
-# Modified: 2025-11-06
+# Modified: 2025-11-07
 
 """
 Language Expert
-Specialized for language understanding and generation
-Supports both AgglutinativeAttention and standard MultiHeadAttention for comparison
+
+Morphology- and semantics-aware language expert, integrating the core ideas
+from the former TMA1Model directly into the AGIFORMER MoE stack.
+
+- Supports AgglutinativeAttention for Turkish-specific modeling
+- Optionally enriches token embeddings with:
+  - morpho_types: morphological categories
+  - semantic_categories: semantic role / category hints
 """
 
 import torch
 import torch.nn as nn
-from typing import Optional
+from typing import Optional, Any
 
 from ..language.attention import AgglutinativeAttention
 from ..core.attention import MultiHeadAttention
 from ..core.base_components import FeedForward, LayerNorm
 
+# These constants mirror the design used in TMA-style morphology/semantics encoding.
+NUM_MORPHEME_TYPES = 23
+NUM_SEMANTIC_CATEGORIES = 12
+
+
 class LanguageExpert(nn.Module):
     """
-    Language Expert that can use either AgglutinativeAttention or standard MultiHeadAttention
-    based on configuration. This enables fair comparison between the two approaches.
+    Morphology- and semantics-aware Language Expert.
+
+    Responsibilities:
+    - Optionally inject morpho_types and semantic_categories embeddings into the hidden states
+    - Run AgglutinativeAttention (or standard MHA) over enriched representations
+    - Return transformed states preserving [batch, seq_len, d_model] shape
     """
 
     def __init__(
@@ -27,64 +42,95 @@ class LanguageExpert(nn.Module):
         d_ff: int = None,
         n_heads: int = 12,
         dropout: float = 0.1,
-        use_agglutinative_attention: bool = True
+        use_agglutinative_attention: bool = True,
+        use_morpho_semantic_embeddings: bool = True,
     ):
         super().__init__()
         self.d_model = d_model
         self.d_ff = d_ff or d_model * 4
         self.use_agglutinative_attention = use_agglutinative_attention
+        self.use_morpho_semantic_embeddings = use_morpho_semantic_embeddings
 
-        # Initialize attention mechanism based on configuration
+        # Core attention mechanism
         if use_agglutinative_attention:
-            # Morphologically-aware attention for Turkish
             self.attention = AgglutinativeAttention(
                 hidden_size=d_model,
                 num_heads=n_heads,
                 verb_bias=2.0,
                 root_bias=1.5,
-                suffix_bias=1.2
+                suffix_bias=1.2,
             )
         else:
-            # Standard multi-head attention for baseline comparison
             self.attention = MultiHeadAttention(
                 d_model=d_model,
                 n_heads=n_heads,
-                dropout=dropout
+                dropout=dropout,
             )
 
-        # Feed-forward network
-        self.ffn = FeedForward(d_model, self.d_ff, dropout)
+        # Optional morphology / semantics embeddings (TMA-style enrichment)
+        if self.use_morpho_semantic_embeddings:
+            self.morpho_embedding = nn.Embedding(NUM_MORPHEME_TYPES, d_model)
+            self.semantic_embedding = nn.Embedding(NUM_SEMANTIC_CATEGORIES, d_model)
 
-        # Layer norms
+        self.ffn = FeedForward(d_model, self.d_ff, dropout)
         self.norm1 = LayerNorm(d_model)
         self.norm2 = LayerNorm(d_model)
-
-        # Dropout
         self.dropout = nn.Dropout(dropout)
 
     def forward(
         self,
         x: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
         morpho_types: Optional[torch.Tensor] = None,
-        attention_mask: Optional[torch.Tensor] = None
+        semantic_categories: Optional[torch.Tensor] = None,
+        **kwargs: Any,  # ignore unused MoE kwargs
     ) -> torch.Tensor:
+        """
+        Args:
+            x: [batch, seq_len, d_model] base hidden states
+            attention_mask: [batch, seq_len] or broadcastable mask
+            morpho_types: [batch, seq_len] (optional)
+            semantic_categories: [batch, seq_len] (optional)
 
-        residual = x
+        Returns:
+            Updated hidden states [batch, seq_len, d_model]
+        """
+        hidden_states = x
+
+        # Inject morpho/semantic embeddings if available
+        if (
+            self.use_morpho_semantic_embeddings
+            and morpho_types is not None
+            and semantic_categories is not None
+        ):
+            morpho_types_clamped = torch.clamp(
+                morpho_types, 0, NUM_MORPHEME_TYPES - 1
+            )
+            semantic_categories_clamped = torch.clamp(
+                semantic_categories, 0, NUM_SEMANTIC_CATEGORIES - 1
+            )
+
+            morpho_emb = self.morpho_embedding(morpho_types_clamped)
+            semantic_emb = self.semantic_embedding(semantic_categories_clamped)
+
+            # Shape checks are implicit; mismatches will surface loudly
+            hidden_states = hidden_states + morpho_emb + semantic_emb
+
+        # Self-attention with potential morphological biasing
+        residual = hidden_states
 
         if self.use_agglutinative_attention:
-            # Morphologically-aware attention
             attn_output, _ = self.attention(
-                hidden_states=self.norm1(x),
+                hidden_states=self.norm1(hidden_states),
                 attention_mask=attention_mask,
-                morpho_types=morpho_types
+                morpho_types=morpho_types,
             )
         else:
-            # Standard self-attention (query=key=value=x)
             attn_output = self.attention(
-                query=self.norm1(x),
-                key=self.norm1(x),
-                value=self.norm1(x),
-                mask=attention_mask
+                query=self.norm1(hidden_states),
+                key=self.norm1(hidden_states),
+                value=self.norm1(hidden_states),
+                mask=attention_mask,
             )
 
         x = residual + self.dropout(attn_output)

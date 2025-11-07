@@ -99,9 +99,10 @@ class AGIFORMERBlock(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
         morpho_types: Optional[torch.Tensor] = None,
-        previous_states: Optional[torch.Tensor] = None
+        semantic_categories: Optional[torch.Tensor] = None,
+        previous_states: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Dict]:
         # --- YENİ MANTIK: AKILLI YÖNLENDİRME ---
         # 1. Girdinin görev türünü tahmin et
@@ -124,8 +125,15 @@ class AGIFORMERBlock(nn.Module):
             routing_bias += expert_mask * domain_score.unsqueeze(-1)
 
         # 3. MoE'yi bias ile çağır
-        x = self.attn_residual(x, lambda y: self.attention(y, y, y, mask))
-        x, moe_info = self.moe(x, routing_bias=routing_bias)
+        x = self.attn_residual(x, lambda y: self.attention(y, y, y, attention_mask))
+        # Pass through MoE with enriched routing context and auxiliary annotations
+        x, moe_info = self.moe(
+            x,
+            routing_bias=routing_bias,
+            attention_mask=attention_mask,
+            morpho_types=morpho_types,
+            semantic_categories=semantic_categories,
+        )
 
         introspection_info = {}
         if self.use_introspection:
@@ -176,13 +184,22 @@ class AGIFORMER(nn.Module):
         # Global Bilgi Grafiğini burada oluştur
         self.global_knowledge_graph = GlobalKnowledgeGraph(num_concepts=1024, d_model=d_model, num_relations=NUM_RELATIONS)
 
+        # LanguageExpert inside each block can leverage morpho/semantic signals via MoE.
+        # If you later expose per-expert configs, thread them in here.
         self.blocks = nn.ModuleList([
             AGIFORMERBlock(
-                d_model, n_heads, d_ff, n_experts, expert_types, dropout,
-                use_linear_attention, (use_introspection and (i == n_layers - 1)),
+                d_model,
+                n_heads,
+                d_ff,
+                n_experts,
+                expert_types,
+                dropout,
+                use_linear_attention,
+                (use_introspection and (i == n_layers - 1)),
                 use_agglutinative_attention,
-                global_knowledge_graph=self.global_knowledge_graph
-            ) for i in range(n_layers)
+                global_knowledge_graph=self.global_knowledge_graph,
+            )
+            for i in range(n_layers)
         ])
         
         self.output_proj = nn.Linear(d_model, self.vocab_size)
@@ -197,13 +214,14 @@ class AGIFORMER(nn.Module):
 
     def forward(
         self,
-        input_ids: Optional[torch.Tensor] = None,  # YENİ: text yerine input_ids
-        morpho_types: Optional[torch.Tensor] = None,  # YENİ: morfolojik tipler
+        input_ids: Optional[torch.Tensor] = None,
+        morpho_types: Optional[torch.Tensor] = None,
+        semantic_categories: Optional[torch.Tensor] = None,
         image: Optional[torch.Tensor] = None,
         audio: Optional[torch.Tensor] = None,
         video: Optional[torch.Tensor] = None,
-        attention_mask: Optional[torch.Tensor] = None,  # YENİ: mask yerine attention_mask
-        return_embeddings: bool = False
+        attention_mask: Optional[torch.Tensor] = None,
+        return_embeddings: bool = False,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict]]:
         model_info = {}
 
@@ -235,17 +253,28 @@ class AGIFORMER(nn.Module):
         all_block_info = []
         previous_states = None
         
-        # --- DEĞİŞİKLİK: Gradient Checkpointing burada uygulanır ---
+        # --- Gradient Checkpointing + MoE-aware experts ---
         for i, block in enumerate(self.blocks):
-            # Eğer eğitim modundaysak ve checkpointing aktifse, checkpoint'i kullan
             if self.training and self.use_gradient_checkpointing:
-                # `checkpoint` fonksiyonu, `block`'un forward'ını çağırır
-                # ama ara aktivasyonları saklamaz, bunun yerine geri yayılımda yeniden hesaplar.
-                # Bu, bellekten tasarruf sağlar.
-                x, block_info = checkpoint(block, x, attention_mask, morpho_types, previous_states, use_reentrant=False)
+                # Positional args into:
+                # AGIFORMERBlock.forward(x, attention_mask, morpho_types, semantic_categories, previous_states)
+                x, block_info = checkpoint(
+                    block,
+                    x,
+                    attention_mask,
+                    morpho_types,
+                    semantic_categories,
+                    previous_states,
+                    use_reentrant=False,
+                )
             else:
-                # Normal forward pass (eğitimde değilsek veya checkpointing kapalıysa)
-                x, block_info = block(x, mask=attention_mask, morpho_types=morpho_types, previous_states=previous_states)
+                x, block_info = block(
+                    x,
+                    attention_mask=attention_mask,
+                    morpho_types=morpho_types,
+                    semantic_categories=semantic_categories,
+                    previous_states=previous_states,
+                )
 
             all_block_info.append(block_info)
             if previous_states is not None: previous_states = torch.cat([previous_states, x], dim=1)

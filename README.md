@@ -1,478 +1,372 @@
-# AGIFORMER: Experimental AGI Research Framework v0.1
+# AGIFORMER
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org)
-[![License](https://img.shields.io/badge/License-Private-green.svg)](LICENSE.txt)
-[![Version](https://img.shields.io/badge/Version-0.1.0-orange.svg)](https://github.com/inkbytefo/agiformer_a)
+// Developer: inkbytefo
+// Modified: 2025-11-07
 
-AGIFORMER, Yapay Genel Zeka'ya yönelik yenilikçi mimari konseptlerini araştıran deneysel bir framework'tür. Geliştirilme aşamasındaki bileşenleri (uzmanlaşmış akıl yürütme motorları, bellek sistemi, iç gözlem yetenekleri) bir araya getirerek geleneksel Transformer mimarilerinin ötesine geçmeye yönelik kavramsal araştırmalar yürütmektedir.
+AGIFORMER is a research-grade, production-oriented architecture for AGI-like reasoning with a focus on:
 
-## ✨ Experimental Features (Under Development)
+- Mixture-of-Experts (MoE) with dynamic routing
+- Unified memory backbone (working + long-term)
+- Introspection and meta-learning loops
+- Neuro-symbolic reasoning over a global knowledge graph
+- Multimodal perception (text, image-ready)
+- Deep Turkish language support with agglutinative and morpho-semantic modeling
 
-- 🧠 **Mixture of Experts (MoE)**: 4 specialized reasoning engines (Language, Logic, Spatial, Causal) - *Conceptual implementation*
-- 🎯 **Multimodal Perception**: Text, image, audio and video processing - *Research framework*
-- 💾 **Advanced Memory System**: Working memory + long-term memory - *Architectural concept*
-- 🔍 **Introspection**: Self-observation and iterative improvement - *Experimental phase*
-- 📝 **MorphoPiece Tokenizer**: Turkish morphological awareness tokenization - *Basic implementation*
-- 🇹🇷 **Turkish Language Processing**: TMA-1 integration for advanced Turkish understanding - *Development stage*
-- ⚡ **Performance Optimizations**: Mixed precision, gradient_checkpointing support - *Infrastructure ready*
-
-## 🚀 Hızlı Başlangıç
-
-### Kurulum
-
-```bash
-# Repoyu klonla
-git clone https://github.com/inkbytefo/agiformer_a.git
-cd agiformer
-
-# Ortam oluştur
-conda create -n agiformer python=3.9
-conda activate agiformer
-
-# Kurulum yap
-pip install -r requirements.txt
-pip install -e .
-```
-
-### İlk Deneme
-
-```python
-import torch
-from agiformer import AGIFORMER
-
-# Model oluştur
-model = AGIFORMER(
-    vocab_size=256,
-    d_model=384,      # Küçük model için hızlı başlangıç
-    n_layers=2,
-    use_multimodal=True,
-    use_memory=True,
-    use_introspection=True
-)
-
-# Metin üretimi
-text = "Merhaba dünya!"
-char_ids = [ord(c) % 256 for c in text]
-input_tensor = torch.tensor([char_ids], dtype=torch.long)
-
-model.eval()
-with torch.no_grad():
-    generated = model.generate(input_tensor, max_new_tokens=20)
-
-result = ''.join([chr(c % 256) for c in generated[0].cpu().numpy()])
-print(f"Çıktı: {result}")
-```
-
-## 📊 Mimari
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    AGIFORMER v0.1                           │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────────────────────────────────────────┐     │
-│  │           TMA-1 (Türkçe Mantık Ağı)             │     │
-│  │        AgglutinativeAttention + Grammar         │     │
-│  └─────────────────────────────────────────────────┘     │
-│                           │                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │   Metin     │  │   Görüntü   │  │    Ses      │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-│         │               │               │                 │
-│  ┌─────────────────────────────────────────────────┐     │
-│  │        Multimodal Perception Core              │     │
-│  └─────────────────────────────────────────────────┘     │
-│                           │                                 │
-│  ┌─────────────────────────────────────────────────┐     │
-│  │            Memory Backbone                       │     │
-│  │    MemoryBank + WorkingMemory + UnifiedMemory   │     │
-│  └─────────────────────────────────────────────────┘     │
-│                           │                                 │
-│  ┌─────────────────────────────────────────────────┐     │
-│  │          Expert Stack (Mixture of Experts)      │     │
-│  │   Language │ Logic │ Spatial │ Causal │ MoE     │     │
-│  └─────────────────────────────────────────────────┘     │
-│                           │                                 │
-│  ┌─────────────────────────────────────────────────┐     │
-│  │              AGIFORMER Block (N layers)         │     │
-│  └─────────────────────────────────────────────────┘     │
-│                           │                                 │
-│  ┌─────────────────────────────────────────────────┐     │
-│  │              Output Projection                   │     │
-│  └─────────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 🧩 Bileşenler
-
-### 1. TMA-1 (Türkçe Mantık Ağı)
-- **AgglutinativeAttention**: Türkçe'nin eklemeli yapısına özel attention mekanizması
-- **MorphoPiece Tokenizer**: Morfolojik farkındalıklı tokenizasyon
-- **Grammar Engine**: Türkçe dilbilgisi kuralları ve ses uyumu kontrolü
-- **Morpho Splitter**: Regex ve Java tabanlı morfem ayrımı
-
-### 2. Uzman Sistemi (MoE)
-- **ExpertRouter**: Dinamik uzman yönlendirme
-- **Language Expert**: Dil işleme ve morfolojik analiz
-- **Logic Expert**: Mantıksal akıl yürütme
-- **Spatial Expert**: Mekansal ve geometrik işleme
-- **Causal Expert**: Nedensel ilişki analizi
-- **Neuro-Symbolic Expert**: Sembolik-mantıksal hibrit akıl yürütme
-
-### 3. Multimodal Algı
-- **TextEncoder**: Karakter/seviye veya token-seviye metin işleme
-- **ImageEncoder**: CLIP tabanlı görüntü encoder'ı
-- **AudioEncoder**: Mel-spektrogram tabanlı ses işleme
-- **VideoEncoder**: Spatio-temporal video analizi
-
-### 4. Bellek Sistemi
-- **MemoryBank**: Uzun süreli bellek deposu
-- **WorkingMemory**: Segment-seviye çalışma belleği
-- **UnifiedMemoryBackbone**: Tümleşik bellek yönetimi
-
-### 5. Knowledge Graph Sistemi
-- **GlobalKnowledgeGraph**: Küresel bilgi grafiği
-- **DynamicKnowledgeGraph**: Dinamik kavram ilişkileri
-- **RelationClassifier**: İlişki tipi sınıflandırma
-
-### 6. İç Gözlem
-- **Self-Model**: Kendi durumunu gözlemleme
-- **Meta Learning**: Öğrenmeyi öğrenme yetenekleri
-- **Task Classifier**: Görev tipi otomatik sınıflandırma
-- **Pseudo Labeler**: Otomatik veri etiketleme
-
-## 📚 Dökümantasyon
-
-| Dökümantasyon | Açıklama |
-|----------------|----------|
-| [📖 Teknik Dökümantasyon](AGIFORMER_TECHNICAL_DOCUMENTATION.md) | Detaylı mimari ve API referansı |
-| [🎨 Mimari Diyagramları](AGIFORMER_ARCHITECTURE_DIAGRAMS.md) | Görsel mimari diyagramları |
-| [⚡ Hızlı Başlangıç](AGIFORMER_QUICK_START_GUIDE.md) | Kapsamlı başlangıç kılavuzu |
-| [📓 Colab Rehberi](COLAB_GUIDE.md) | Google Colab'da çalıştırma |
-
-## 🛠️ Kullanım
-
-### Temel Kullanım
-
-```python
-from agiformer import AGIFORMER
-
-# Model oluştur
-model = AGIFORMER(
-    vocab_size=256,
-    d_model=768,
-    n_layers=12,
-    n_heads=12,
-    n_experts=4,
-    use_multimodal=True,
-    use_memory=True,
-    use_introspection=True
-)
-
-# İleri geçiş
-logits, info = model(text=input_ids, image=image_tensor)
-
-# Metin üretimi
-generated = model.generate(input_ids, max_new_tokens=50)
-```
-
-### Multimodal İşleme
-
-```python
-# Farklı modaliteler
-logits, info = model(
-    text=text_ids,
-    image=image_tensor,
-    audio=audio_tensor,
-    video=video_tensor
-)
-
-# Model bilgisi
-print(f"Modaliteler: {info['modalities']}")
-print(f"Uzman kullanımı: {info['blocks'][0]['moe']['router_info']['expert_usage']}")
-```
-
-### Eğitim
-
-```python
-# Yeni birleştirilmiş eğitim script'i - Hydra konfigürasyonu ile
-python train.py experiment=phase1_lite hardware=t4_gpu
-
-# Farklı deneyler
-python train.py experiment=phase1_baseline hardware=default_gpu
-python train.py experiment=phase1_lite hardware=cpu
-
-# Özel veri ile eğitim
-python train.py experiment=phase1_lite hardware=t4_gpu data.data_path=turkish_dataset.jsonl
-
-# Mevcut konfigürasyonları görüntüle
-python train.py --help
-```
-
-#### Konfigürasyon Yapısı
-
-Yeni konfigürasyon sistemi üç ana kategoriye ayrılmıştır:
-
-- **`conf/experiment/`**: Deney spesifik ayarlar (phase1_lite, phase1_baseline)
-- **`conf/hardware/`**: Donanım optimizasyonları (cpu, t4_gpu, default_gpu)
-- **`conf/base/`**: Temel model ve eğitim ayarları
-
-#### Örnek Konfigürasyonlar
-
-```yaml
-# conf/experiment/phase1_lite.yaml
-d_model: 512
-n_layers: 6
-use_agglutinative_attention: true
-morphological_analysis: true
-
-# conf/hardware/t4_gpu.yaml
-device: cuda
-batch_size: 16
-use_amp: true
-```
-
-## 🧪 Testler
-
-```bash
-# Tüm testler
-python -m pytest tests/ -v
-
-# Bileşen testleri
-python examples/multimodal_test.py
-python examples/moe_test.py
-python examples/memory_test.py
-python examples/introspection_test.py
-
-# Konfigürasyon testi
-python test_fix.py
-```
-
-## 📈 Current Development Status
-
-### Framework Architecture (Under Development)
-- **Basic Model Framework**: Conceptual implementation of MoE architecture
-- **Memory Usage**: Infrastructure ready for memory optimization
-- **Training Pipeline**: Basic training loop with room for optimization
-- **Research Focus**: Architectural experimentation, not performance benchmarking
-
-### Infrastructure Status
-- ✅ Mixed precision training infrastructure
-- ✅ Gradient checkpointing support
-- ✅ Configurable model architecture
-- 🔄 Training optimization (in progress)
-
-## 🎯 Research Vision (Long-term Goals)
-
-**Note**: The following represents our long-term research vision and experimental goals, not current achieved results.
-
-### Target Performance Goals
-- **SOTA Reasoning**: Mixture of Experts for specialized cognitive tasks
-- **Multimodal Integration**: Unified text, image, audio, video understanding
-- **Advanced Memory**: Persistent knowledge and context awareness
-- **Self-Introspection**: Meta-learning and self-improvement capabilities
-- **Turkish Language Mastery**: Native-level Turkish language understanding
-
-**Important**: These are research objectives and experimental goals, not currently achieved benchmarks. The project is in early research and development phase.
-
-## 🎯 Örnekler
-
-### 1. Metin Üretimi
-```python
-# Yaratıcı metin üretimi
-prompt = "Gelecekte yapay zeka"
-generated = model.generate(prompt_ids, temperature=1.2, top_p=0.9)
-```
-
-### 2. Görüntü-Metin
-```python
-# Görüntü açıklama
-image = load_image("example.jpg")
-logits, info = model(text=prompt_ids, image=image)
-```
-
-### 3. Bellek Analizi
-```python
-# Bellek kullanımını izle
-logits, info = model(text=input_ids)
-memory_info = info['memory']
-print(f"Bellek adımları: {memory_info['step_count']}")
-```
-
-## 🔧 Konfigürasyon
-
-### Temel Konfigürasyon ([`configs/base_config.yaml`](configs/base_config.yaml))
-```yaml
-model:
-  vocab_size: 256
-  d_model: 768
-  n_layers: 12
-  n_heads: 12
-  n_experts: 4
-  expert_types: ["language", "logic", "spatial", "causal"]
-  use_memory: true
-  use_introspection: true
-  use_multimodal: true
-
-training:
-  batch_size: 32
-  learning_rate: 0.0001
-  use_amp: true
-```
-
-### Colab Konfigürasyonu ([`configs/colab_config.yaml`](configs/colab_config.yaml))
-- Daha küçük model boyutu
-- Azaltılmış batch size
-- Optimize edilmiş for Colab
-
-## 🏗️ Proje Yapısı
-
-```
-agiformer/
-├── agiformer/                 # Ana paket
-│   ├── core/                 # Çekirdek bileşenler
-│   │   ├── attention.py      # MultiHead, Linear, SyntaxAware, CrossModal attention
-│   │   ├── base_components.py # LayerNorm, PositionalEncoding, FeedForward
-│   │   ├── memory_backbone.py # MemoryBank, WorkingMemory, UnifiedMemoryBackbone
-│   │   └── multimodal_perception.py # Text/Image/Audio/Video encoders
-│   ├── language/             # Türkçe dil işleme modülleri (TMA-1)
-│   │   ├── model.py          # TMA1Model (Türkçe Mantık Ağı)
-│   │   ├── attention.py      # AgglutinativeAttention (eklemeli yapı)
-│   │   ├── morpho_splitter.py # Regex ve Java tabanlı morfem ayrımı
-│   │   ├── tokenizer.py      # MorphoPiece tokenizer
-│   │   └── grammar_engine.py # Türkçe dilbilgisi kuralları motoru
-│   ├── experts/              # Mixture of Experts sistemi
-│   │   ├── moe.py           # ExpertRouter, Expert, MixtureOfExperts
-│   │   ├── language_expert.py # Dil uzmanı
-│   │   ├── logic_expert.py   # Mantık uzmanı
-│   │   ├── spatial_expert.py # Mekansal uzman
-│   │   ├── causal_expert.py  # Nedensel uzman
-│   │   ├── knowledge_graph.py # Global/Dynamic knowledge graphs
-│   │   ├── neuro_symbolic_expert.py # Neuro-symbolic reasoning
-│   │   ├── pseudo_labeler.py # Otomatik etiketleme
-│   │   ├── task_classifier.py # Görev tipi sınıflandırma
-│   │   └── relations.py      # İlişki işleme
-│   ├── introspection/        # İç gözlem sistemi
-│   │   ├── self_model.py    # Self-model gözlemi
-│   │   └── meta_learning.py # Meta-öğrenme
-│   ├── data/                 # Birleştirilmiş veri işleme modülü
-│   │   └── dataset.py        # Tüm dataset sınıfları (TurkishTextDataset, TextDataset, vb.)
-│   ├── datasets/             # Multimodal veri setleri
-│   │   ├── base_dataset.py   # Temel dataset sınıfı
-│   │   └── cc_datasets.py    # Common Crawl veri işleme
-│   ├── __init__.py
-│   ├── model.py              # AGIFORMER ana model
-│   ├── data_quality.py       # Veri kalitesi kontrolü
-│   └── utils.py              # Yardımcı fonksiyonlar
-├── conf/                     # Yeni konfigürasyon yapısı
-│   ├── config.yaml           # Ana konfigürasyon girişi
-│   ├── base/                 # Temel ayarlar
-│   │   ├── model.yaml        # Temel model mimarisi
-│   │   └── training.yaml     # Temel eğitim ayarları
-│   ├── experiment/           # Deney spesifik konfigürasyonlar
-│   │   ├── phase1_lite.yaml  # Hafif model deneyi
-│   │   └── phase1_baseline.yaml # Karşılaştırma deneyi
-│   ├── hardware/             # Donanım optimizasyonları
-│   │   ├── cpu.yaml          # CPU optimizasyonu
-│   │   ├── t4_gpu.yaml       # T4 GPU optimizasyonu
-│   │   └── default_gpu.yaml  # Varsayılan GPU ayarları
-│   ├── logging/              # Log ayarları
-│   └── model/                # Eski model konfigürasyonları (arşiv)
-├── archive/                  # Arşivlenmiş eski script'ler
-│   ├── train_phase1.py       # Eski Phase 1 eğitim script'i
-│   ├── training_example.py   # Eski eğitim örneği
-│   ├── quick_test.py         # Eski test script'i
-│   └── old_train_backup.py    # Eski train.py yedeği
-├── examples/                 # Kullanım örnekleri
-├── scripts/                  # Yardımcı script'ler
-│   ├── analyze_data_quality.py
-│   ├── clean_corpus.py
-│   ├── download_real_datasets.py
-│   ├── prepare_cc12m.py
-│   ├── preprocess_language_data.py
-│   └── train_tokenizer.py
-├── tests/                    # Testler
-└── train.py                  # Yeni birleştirilmiş eğitim script'i
-```
-
-## 🤝 Katkı
-
-Katkılarınızı bekliyoruz! Lütfen aşağıdaki adımları izleyin:
-
-1. Fork yapın
-2. Feature branch oluşturun (`git checkout -b feature/AmazingFeature`)
-3. Commit yapın (`git commit -m 'Add some AmazingFeature'`)
-4. Push yapın (`git push origin feature/AmazingFeature`)
-5. Pull request açın
-
-### Geliştirme Kurulumu
-
-```bash
-# Geliştirme ortamı
-git clone https://github.com/inkbytefo/agiformer_a.git
-cd agiformer
-
-# Development modunda kur
-pip install -e ".[dev]"
-
-# Testleri çalıştır
-python -m pytest tests/ -v
-
-# Kod formatlama
-black agiformer/
-flake8 agiformer/
-```
-
-## 📄 Lisans
-
-Bu proje **özel mülkiyet lisansı** altında lisanslanmıştır - [LICENSE.txt](LICENSE.txt) dosyasına bakın. Tüm fikri mülkiyet hakları Tevfik İşkın'a aittir.
-
-## 🙏 Teşekkürler
-
-- **Transformer** mimarisi
-- **Mixture of Experts** araştırmaları
-- **CLIP** multimodal öğrenme
-- **Charformer** morfo-semantik tokenizasyon
-- **Transformer-XL** bellek mekanizmaları
-
-## 📞 İletişim
-
-- **Proje**: https://github.com/yourusername/agiformer
-- **Issues**: https://github.com/yourusername/agiformer/issues
-- **Discussions**: https://github.com/yourusername/agiformer/discussions
-
-## 🗺️ Development Roadmap
-
-### Current Status (v0.1)
-- ✅ Basic framework architecture
-- ✅ Initial MoE conceptual implementation
-- ✅ Training infrastructure setup
-- 🔄 Real dataset integration (in progress)
-- 🔄 Component testing and validation
-
-### v0.2 (Next Development Phase)
-- [ ] Complete real dataset training verification
-- [ ] Enhanced MoE expert implementations
-- [ ] Improved memory system architecture
-- [ ] Basic multimodal integration testing
-
-### v0.3 (Long-term Research Goals)
-- [ ] Advanced expert specializations
-- [ ] Distributed training capabilities
-- [ ] Mobile optimization research
-- [ ] API service development
-
-**Note**: All roadmap items are development goals, not guaranteed deliverables. This is research-focused experimental work.
+This repository contains the reference implementation used for controlled experiments, with all components wired through a single, coherent training stack.
 
 ---
 
-<div align="center">
+## Key Design Principles
 
-**AGIFORMER** - Yapay Genel Zeka'ya giden yolculukta bir adım
+- Single source of truth:
+  - The active training path is [`train.py`](train.py) using Hydra configs under `conf/`.
+  - All language-specific capabilities are integrated into `AGIFORMER` via the MoE/experts stack.
+- Explicit, debuggable behavior:
+  - No silent clamping that hides data errors.
+  - Auxiliary losses (e.g. MoE load balancing) are separated from main optimization metrics.
+- Turkish-first language modeling:
+  - Morphology, semantics, and agglutinative structure are modeled explicitly and consumed in the main model, not via a side-car model.
 
-[![Star](https://img.shields.io/github/stars/yourusername/agiformer.svg?style=social&label=Star)](https://github.com/inkbytefo/agiformer_a)
-[![Fork](https://img.shields.io/github/forks/yourusername/agiformer.svg?style=social&label=Fork)](https://github.com/inkbytefo/agiformer_a/fork)
-[![Watch](https://img.shields.io/github/watchers/yourusername/agiformer.svg?style=social&label=Watch)](https://github.com/inkbytefo/agiformer_a)
+---
 
-</div>
+## High-Level Architecture
+
+### 1. Core Model: `AGIFORMER`
+
+Location: [`agiformer/model.py`](agiformer/model.py:142)
+
+AGIFORMER is a Transformer-like backbone augmented with:
+
+- MoE blocks with task-aware routing
+- Unified memory backbone
+- Optional multimodal perception core
+- Optional introspection loop in the top block
+- Global knowledge graph integration
+
+Core call:
+
+```python
+logits, info = model(
+    input_ids=input_ids,
+    attention_mask=attention_mask,
+    morpho_types=morpho_types,                 # optional
+    semantic_categories=semantic_categories,   # optional
+    image=image,                               # optional
+)
+```
+
+Key components:
+
+- Embedding:
+  - `self.token_embedding`: learned token embeddings from MorphoPiece vocab.
+  - Input validation: out-of-range token IDs raise `ValueError` instead of being silently clipped.
+- Blocks: `self.blocks: List[AGIFORMERBlock]`
+- Output:
+  - `self.final_norm` + `self.output_proj` → vocabulary logits.
+
+### 2. Blocks + Mixture-of-Experts
+
+Location: [`agiformer/model.py`](agiformer/model.py:26), [`agiformer/experts/moe.py`](agiformer/experts/moe.py:120)
+
+Each `AGIFORMERBlock`:
+
+- Self-attention (standard or linear)
+- TaskTypeClassifier:
+  - Predicts domain distribution, used to bias MoE routing.
+- MixtureOfExperts:
+  - Top-k routing with load-balancing loss.
+  - Custom experts: Language, Logic, Spatial, Causal, Neuro-Symbolic.
+- Optional IntrospectionLoop (last block).
+
+MoE interface:
+
+```python
+output, moe_info = self.moe(
+    hidden_states,
+    routing_bias=routing_bias,
+    attention_mask=attention_mask,
+    morpho_types=morpho_types,
+    semantic_categories=semantic_categories,
+)
+```
+
+- `MixtureOfExperts` forwards `**expert_kwargs` into each expert:
+  - Experts that care (e.g. LanguageExpert) consume them.
+  - Others ignore extra kwargs.
+
+### 3. Language Expert (Integrated TMA-style Capabilities)
+
+Location: [`agiformer/experts/language_expert.py`](agiformer/experts/language_expert.py:1)
+
+The `LanguageExpert` is the canonical Turkish language specialist:
+
+- Uses `AgglutinativeAttention` or standard MHA.
+- Optionally enriches hidden states with:
+  - `morpho_types`: morphological categories.
+  - `semantic_categories`: semantic role/category hints.
+
+Core behavior:
+
+- Receives `x` from the block (already in model space).
+- If `morpho_types` and `semantic_categories` are provided:
+  - Embeds them via:
+    - `morpho_embedding(NUM_MORPHEME_TYPES=23)`
+    - `semantic_embedding(NUM_SEMANTIC_CATEGORIES=12)`
+  - Adds to hidden states (residual enrichment).
+- Runs attention:
+  - If agglutinative:
+    - Uses `AgglutinativeAttention` with `morpho_types` to bias attention.
+  - Else:
+    - Uses standard `MultiHeadAttention`.
+- Applies FFN + residual.
+
+Result:
+- Former `TMA1Model` capabilities are now part of the main AGIFORMER MoE flow.
+- No parallel, divergent architecture.
+
+### 4. Neuro-Symbolic Expert
+
+Location: [`agiformer/experts/neuro_symbolic_expert.py`](agiformer/experts/neuro_symbolic_expert.py:33)
+
+- Extracts edges from attention patterns (vectorized with `nonzero` / masking).
+- Classifies relations between concept pairs.
+- Feeds into a `DynamicKnowledgeGraph` / `GlobalKnowledgeGraph`.
+- Projects reasoning results back into the neural space.
+
+Performance:
+- Python loops removed from the critical path.
+- GPU-friendly tensor operations used for edge construction.
+
+### 5. Memory Backbone
+
+Location: [`agiformer/core/memory_backbone.py`](agiformer/core/memory_backbone.py)
+
+- Provides:
+  - Working memory.
+  - Long-term memory.
+- Integrated directly in `AGIFORMER.forward`:
+  - `self.memory(x, use_working_memory=True, use_longterm_memory=True)`
+
+### 6. Multimodal Perception
+
+Location: [`agiformer/core/multimodal_perception.py`](agiformer/core/multimodal_perception.py)
+
+- Processes non-text modalities (e.g., images) into aligned embeddings.
+- Controlled by `use_multimodal` flag in model config.
+- Integrated in `AGIFORMER.forward` when modalities are present.
+
+### 7. Introspection
+
+Location: [`agiformer/introspection/self_model.py`](agiformer/introspection/self_model.py), [`agiformer/introspection/meta_learning.py`](agiformer/introspection/meta_learning.py)
+
+- `IntrospectionLoop` in the last block:
+  - Operates over cumulative hidden states (`previous_states`).
+  - Enables meta-reasoning and self-monitoring paths.
+
+
+---
+
+## Data Pipeline
+
+### 1. Turkish Text Datasets
+
+Location: [`agiformer/datasets/text_datasets.py`](agiformer/datasets/text_datasets.py:19)
+
+`TurkishTextDataset`:
+
+- Supports:
+  - `.jsonl` with:
+    - `tokens`
+    - `morpho_types`
+    - `semantic_categories`
+  - Plain text with on-the-fly morphology (via `MorphoSplitter`) when enabled.
+- Behavior:
+  - Encodes tokens via MorphoPiece or char fallback.
+  - Generates:
+    - `input_ids`, `target_ids`
+    - `attention_mask`
+    - `morpho_types`, `semantic_categories` when available.
+  - No final “blind clamp”:
+    - Invalid IDs are mapped to UNK or caught by AGIFORMER’s validation.
+
+`SimpleTextDataset`:
+- Lightweight char-level dataset for smoke tests and demos.
+
+### 2. CC / Multimodal Datasets
+
+Location: [`agiformer/datasets/cc_datasets.py`](agiformer/datasets/cc_datasets.py)
+
+- CC12M-style structure with text + image metadata.
+- Used when `data_dir` with `metadata_train.json` / `metadata_val.json` is present.
+
+### 3. Batch Preparation
+
+Location: [`train.py`](train.py:108)
+
+`prepare_batch_data`:
+
+- Normalizes all dataset variants into `AGIFORMER.forward` kwargs.
+- For dict batches (JSONL):
+  - `input_ids`
+  - `attention_mask` (if exists)
+  - `morpho_types` (if exists)
+  - `semantic_categories` (if exists)
+  - `target_ids`
+- For multimodal:
+  - Adds `image` (and future modalities).
+- For legacy tuple format:
+  - Only `input_ids`, `target_ids`.
+
+---
+
+## Training Loop
+
+Location: [`train.py`](train.py:211)
+
+Entry:
+- Hydra-based:
+  - `@hydra.main(config_path="conf", config_name="config")`
+- Uses `conf/`:
+  - `conf/model/*.yaml`
+  - `conf/training/*.yaml`
+  - `conf/hardware/*.yaml`
+  - `conf/logging/*.yaml`
+  - `conf/experiment/*.yaml`
+
+Key characteristics:
+
+- Optimizer:
+  - AdamW with configurable betas, eps, weight decay.
+- Scheduler:
+  - `WarmupScheduler` (custom warmup based on `d_model`).
+- AMP:
+  - `torch.amp.autocast` + `GradScaler`.
+- Checkpoints:
+  - `CheckpointManager`:
+    - `latest.pt`
+    - `best_model.pt`
+    - rolling `checkpoint_*.pt`.
+- Metrics:
+  - `MetricsLogger` with optional W&B integration.
+
+Loss handling (fixed and aligned):
+
+- Training:
+  - `main_loss = CrossEntropyLoss(ignore_index=0)`
+  - `aux_loss = sum(MoE load_balancing_loss from blocks if present)`
+  - `total_loss = main_loss + aux_loss`
+  - Backprop on `total_loss`.
+- Logging:
+  - Train:
+    - `Training/main_loss`
+    - `Training/aux_lb_loss`
+  - Validation:
+    - `Validation/main_loss` (NO aux terms).
+- Checkpoint selection:
+  - Uses validation main_loss only.
+
+Result:
+- Train and validation curves are directly comparable.
+- Regularizers contribute to optimization without contaminating metrics.
+
+---
+
+## Configuration
+
+Configs live under `conf/`:
+
+- `conf/model/base.yaml`:
+  - d_model, n_layers, n_heads, d_ff
+  - n_experts, expert_types
+  - use_memory, use_introspection, use_multimodal
+  - use_agglutinative_attention
+  - tokenizer_path, max_seq_len
+- `conf/training/base.yaml`:
+  - batch_size, learning_rate, warmup_steps
+  - epochs, max_steps
+  - log_interval, eval_interval, save_interval
+  - use_gradient_checkpointing, use_amp
+- `conf/hardware/*.yaml`:
+  - device, T4 / CPU presets, CUDA allocator hints.
+- `conf/logging/base.yaml`:
+  - console log level, W&B toggles.
+
+Typical run:
+
+```bash
+python train.py experiment=phase1_baseline
+```
+
+Hydra manages:
+- Output directory
+- Checkpoints under `<output_dir>/checkpoints`
+- Final config snapshot.
+
+---
+
+## Development and Testing
+
+### Linting
+
+Recommended:
+- ruff / flake8 for Python.
+- Enforce:
+  - No unused imports.
+  - Type hints for public APIs where reasonable.
+
+Example (if Makefile exists):
+
+```bash
+make lint
+```
+
+### Tests
+
+Location: `tests/`
+
+- `tests/test_model.py`:
+  - Smoke tests for AGIFORMER instantiation and forward.
+- Extend with:
+  - Dataset shape tests.
+  - MoE routing sanity checks.
+  - Neuro-symbolic expert edge construction tests.
+
+Run:
+
+```bash
+pytest -q
+```
+
+### Minimal Smoke Test (Code-Consistent)
+
+Using provided pipeline:
+
+```bash
+python train.py \
+  experiment=phase1_lite \
+  training.max_steps=50 \
+  training.batch_size=4 \
+  logging.use_wandb=false
+```
+
+This should:
+- Build AGIFORMER with MoE + LanguageExpert integration.
+- Run a short loop without shape/signature errors.
+- Log main_loss and aux_lb_loss separately.
+
+---
+
+## Project Status
+
+- DONE:
+  - Integrated morpho/semantic-aware LanguageExpert into AGIFORMER MoE.
+  - Removed TMA1Model from public API to avoid dual architectures.
+  - Fixed:
+    - Training/validation loss comparability.
+    - Token ID clamping issues.
+    - NeuroSymbolicExpert performance bottleneck.
+    - attention_mask vs mask inconsistencies in checkpoint paths.
+- TODO (docs-level):
+  - Keep `docs/` synchronized with this README for future architectural changes.
+
+AGIFORMER is now a single, coherent architecture where advanced Turkish-specific language modeling, memory, introspection, neuro-symbolic reasoning and MoE routing all operate within the same training and deployment graph.

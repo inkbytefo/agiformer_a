@@ -1,44 +1,83 @@
 # Developer: inkbytefo
-# Modified: 2025-11-06
-
+# Modified: 2025-11-07
+#
 # @package _group_
-
-# AGIFORMER Phase 1 Baseline Experiment Configuration
-# Standard Transformer with MultiHeadAttention for comparison with AGIFORMER-Lite
+#
+# Phase 1 Baseline (Standard Transformer-Style, Morphology OFF)
+#
+# Purpose:
+#   Baseline run WITHOUT morpho-semantic enrichment.
+#   Control setup for:
+#     - Morphological & semantic embeddings vs baseline perplexity comparison
+#   Target hardware:
+#     - Single NVIDIA T4 14GB GPU
 
 defaults:
   - _self_
 
-# Override model settings for Phase 1 Baseline
 model:
-  d_model: 256  # Further reduced for T4
-  n_layers: 3   # Further reduced for memory
-  n_heads: 4    # Further reduced
-  d_ff: 1024    # Further reduced
+  # Backbone
+  d_model: 512
+  n_layers: 8
+  n_heads: 8
+  d_ff: 2048
+
+  # MoE: single language expert, no morpho/semantic specialization
   n_experts: 1
   expert_types: ["language"]
+
+  # Sequence / memory
   memory_size: 0
-  max_seq_len: 128  # Further reduced
+  max_seq_len: 512
+
+  # Feature flags
   use_linear_attention: false
   use_memory: false
   use_introspection: false
   use_multimodal: false
+
+  # Baseline = no Turkish-specific morpho/semantic bias
   use_agglutinative_attention: false
   morphological_analysis: false
 
-# Override training settings for Phase 1
-training:
-  batch_size: 2   # Further reduced for T4 memory (overridden for CUDA OOM fix)
-  learning_rate: 0.0001
-  warmup_steps: 1000
-  max_steps: 10000
-  epochs: 10
-  eval_interval: 500
-  log_interval: 100
-  save_interval: 1000
-  gradient_accumulation_steps: 8  # Further increase to compensate for smaller batch size
-  use_gradient_checkpointing: true  # Explicitly enabled to prevent CUDA OOM
+  # Tokenizer
+  tokenizer_path: tokenizer/morphopiece.model
 
-# Experiment metadata
+training:
+  # Tuned for 1x T4 14GB
+  batch_size: 32                   # Effective, fits with AMP + checkpointing
+  epochs: 3
+  max_steps: 30000
+  gradient_accumulation_steps: 1
+
+  learning_rate: 0.0003
+  warmup_steps: 1000
+
+  optimizer: adamw
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1.0e-8
+  weight_decay: 0.01
+
+  use_amp: true
+  use_gradient_checkpointing: true
+
+  log_interval: 100
+  eval_interval: 1000
+  save_interval: 5000
+
+  checkpoint_dir: checkpoints/phase1_baseline
+  keep_last_n_checkpoints: 3
+
+# Data config for this experiment:
+data:
+  data_path: data/turkish_corpus/turkish_corpus_phase1.jsonl
+  data_dir: null
+  val_data_path: null
+  train_split: 0.95
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+
 experiment_name: phase1_baseline
 run_name: phase1_baseline_${now:%Y%m%d_%H%M%S}

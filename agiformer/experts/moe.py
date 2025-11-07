@@ -6,7 +6,7 @@ Dynamically routes inputs to specialized expert networks
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 import math
 
 
@@ -156,12 +156,15 @@ class MixtureOfExperts(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        routing_bias: Optional[torch.Tensor] = None
+        routing_bias: Optional[torch.Tensor] = None,
+        **expert_kwargs: Any,
     ) -> Tuple[torch.Tensor, Dict]:
         """
         Args:
             hidden_states: [batch_size, seq_len, d_model]
             routing_bias: Optional[torch.Tensor] - external bias for routing. Shape: [batch_size, n_experts]
+            **expert_kwargs: Additional arguments forwarded to experts
+                             (e.g. morpho_types, semantic_categories, attention_mask)
 
         Returns:
             output: [batch_size, seq_len, d_model]
@@ -176,7 +179,8 @@ class MixtureOfExperts(nn.Module):
         expert_outputs = []
         expert_infos = []
         for i, expert in enumerate(self.experts):
-            expert_result = expert(hidden_states)
+            # Forward additional kwargs; experts ignore what they don't need
+            expert_result = expert(hidden_states, **expert_kwargs)
             if isinstance(expert_result, tuple):
                 expert_out, expert_info = expert_result
                 expert_infos.append(expert_info)

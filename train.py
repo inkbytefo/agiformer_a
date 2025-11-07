@@ -106,23 +106,49 @@ class MetricsLogger:
 
 
 def prepare_batch_data(batch, device, is_multimodal):
+    """
+    Normalize batch into AGIFORMER.forward(**model_inputs), target_ids.
+
+    Supports:
+    - Multimodal CC datasets
+    - TurkishTextDataset JSONL with morpho_types / semantic_categories
+    - Legacy (input_ids, target_ids) tuples
+    """
     if is_multimodal:
-        return {
-            'input_ids': batch['input_ids'].to(device),
-            'morpho_types': batch.get('morpho_types', None),
-            'image': batch['image'].to(device)
-        }, batch['target_ids'].to(device)
-    else:
-        if isinstance(batch, dict):
-            # JSONL format with morpho_types
-            return {
-                'input_ids': batch['input_ids'].to(device),
-                'morpho_types': batch.get('morpho_types', None)
-            }, batch['target_ids'].to(device)
-        else:
-            # Legacy format
-            input_ids, target_ids = batch
-            return {'input_ids': input_ids.to(device)}, target_ids.to(device)
+        model_inputs = {
+            "input_ids": batch["input_ids"].to(device),
+            "attention_mask": batch.get("attention_mask", None).to(device)
+            if batch.get("attention_mask") is not None
+            else None,
+            "image": batch["image"].to(device),
+        }
+        if "morpho_types" in batch:
+            model_inputs["morpho_types"] = batch["morpho_types"].to(device)
+        if "semantic_categories" in batch:
+            model_inputs["semantic_categories"] = batch["semantic_categories"].to(device)
+
+        target_ids = batch["target_ids"].to(device)
+        return model_inputs, target_ids
+
+    # Text-only paths
+    if isinstance(batch, dict):
+        model_inputs = {
+            "input_ids": batch["input_ids"].to(device),
+            "attention_mask": batch.get("attention_mask", None).to(device)
+            if batch.get("attention_mask") is not None
+            else None,
+        }
+        if "morpho_types" in batch:
+            model_inputs["morpho_types"] = batch["morpho_types"].to(device)
+        if "semantic_categories" in batch:
+            model_inputs["semantic_categories"] = batch["semantic_categories"].to(device)
+
+        target_ids = batch["target_ids"].to(device)
+        return model_inputs, target_ids
+
+    # Legacy (input_ids, target_ids)
+    input_ids, target_ids = batch
+    return {"input_ids": input_ids.to(device)}, target_ids.to(device)
 
 
 def validate_epoch(model, dataloader, criterion, device, use_amp, is_multimodal):
@@ -376,50 +402,104 @@ def main(cfg: DictConfig) -> None:
 
                 with torch.amp.autocast(device_type=device.type, enabled=cfg.training.use_amp):
                     logits, info = model(**model_inputs)
-                    loss = criterion(logits.view(-1, logits.size(-1)), target_ids.view(-1))
-                
+
+                    # Primary supervised loss (this is the ONLY loss used for train/val comparison)
+                    main_loss = criterion(
+                        logits.view(-1, logits.size(-1)),
+                        target_ids.view(-1)
+                    )
+
+                    # Optional: aggregate auxiliary losses from MoE/introspection if exposed in info
+                    aux_loss = 0.0
+                    if isinstance(info, dict):
+                        # Example: sum load_balancing_loss across blocks if present
+                        blocks = info.get('blocks', [])
+                        lb_losses = []
+                        for b in blocks:
+                            moe_info = b.get('moe', {}) if isinstance(b, dict) else {}
+                            if 'load_balancing_loss' in moe_info:
+                                lb_losses.append(moe_info['load_balancing_loss'])
+                        if lb_losses:
+                            aux_loss = sum(lb_losses)
+
+                    total_loss = main_loss + aux_loss
+
                 optimizer.zero_grad()
-                scaler.scale(loss).backward()
+                scaler.scale(total_loss).backward()
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
                 scaler.update()
                 scheduler.step()
 
-                # --- MODIFIED: Log every step for clarity, and use log_interval for detailed W&B logging ---
-                logger.info(f"Step {global_step}/{cfg.training.max_steps}, Loss: {loss.item():.4f}")
+                # Log only the primary supervised loss for comparability with validation
+                logger.info(
+                    f"Step {global_step}/{cfg.training.max_steps}, "
+                    f"Train/main_loss: {main_loss.item():.4f}, Aux/lb_loss: {float(aux_loss):.4f}"
+                )
 
                 if metrics_logger and global_step % cfg.training.log_interval == 0:
-                    metrics_logger.log_training_metrics(global_step, loss.item(), info)
+                    train_metrics = {
+                        "Training/main_loss": float(main_loss),
+                        "Training/aux_lb_loss": float(aux_loss),
+                    }
+                    # Preserve original behavior but ensure standardized keys
+                    metrics_logger.log_training_metrics(global_step, float(main_loss), train_metrics)
 
                 if global_step % cfg.training.eval_interval == 0:
-                    val_loss = validate_epoch(model, val_loader, criterion, device, cfg.training.use_amp, is_multimodal)
+                    val_loss = validate_epoch(
+                        model,
+                        val_loader,
+                        criterion,
+                        device,
+                        cfg.training.use_amp,
+                        is_multimodal
+                    )
                     model.train()
+
                     if metrics_logger:
-                        metrics_logger.log_validation_metrics(global_step, val_loss, {})
-                    
+                        # Log validation main loss only
+                        metrics_logger.log_validation_metrics(
+                            global_step,
+                            float(val_loss),
+                            {"Validation/main_loss": float(val_loss)}
+                        )
+
                     is_best = val_loss < best_val_loss
                     if is_best:
                         best_val_loss = val_loss
-                    
-                    logger.info(f"Step {global_step}: Validation Loss: {val_loss:.4f} {'(Best)' if is_best else ''}")
-                    
+
+                    logger.info(
+                        f"Step {global_step}: Validation/main_loss: {val_loss:.4f} "
+                        f"{'(Best)' if is_best else ''}"
+                    )
+
                     if is_best:
-                         checkpoint_manager.save_checkpoint(
-                            global_step, model, optimizer, scheduler,
-                            {'val_loss': val_loss, 'epoch': epoch}, is_best=True
+                        checkpoint_manager.save_checkpoint(
+                            global_step,
+                            model,
+                            optimizer,
+                            scheduler,
+                            {"val_loss": float(val_loss), "epoch": epoch},
+                            is_best=True,
                         )
 
                 if global_step % cfg.training.save_interval == 0:
                     checkpoint_manager.save_checkpoint(
-                        global_step, model, optimizer, scheduler,
-                        {'val_loss': best_val_loss, 'epoch': epoch}, is_best=False
+                        global_step,
+                        model,
+                        optimizer,
+                        scheduler,
+                        {"val_loss": float(best_val_loss), "epoch": epoch},
+                        is_best=False,
                     )
 
                 if cfg.training.max_steps and global_step >= cfg.training.max_steps:
-                    logger.info(f"Reached max_steps ({cfg.training.max_steps}). Stopping training.")
+                    logger.info(
+                        f"Reached max_steps ({cfg.training.max_steps}). Stopping training."
+                    )
                     break
-            
+
             if cfg.training.max_steps and global_step >= cfg.training.max_steps:
                 break
 

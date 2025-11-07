@@ -225,11 +225,14 @@ class TurkishTextDataset(Dataset):
             input_semantic_categories = input_semantic_categories + [pad_semantic_category] * padding_len
             target_semantic_categories = target_semantic_categories + [pad_semantic_category] * padding_len
 
-        # --- DEĞİŞİKLİK: Son aşamada tüm token ID'lerini clamp et ---
-        # Clamp all token IDs to be within the valid vocabulary range
-        input_ids = [max(0, min(token_id, self.vocab_size - 1)) for token_id in input_ids]
-        target_ids = [max(0, min(token_id, self.vocab_size - 1)) for token_id in target_ids]
-        # --- BİTTİ ---
+        # NOTE:
+        # At this stage token_ids have already been validated/mapped:
+        #  - Out-of-range IDs are converted to tokenizer.unk_id() (if available and valid)
+        #  - Otherwise safely mapped to 0.
+        # Additional global clamping here would silently turn unknown/error tokens
+        # into valid but semantically incorrect IDs, hiding data problems and
+        # conflicting with AGIFORMER input validation.
+        # Therefore, we intentionally do NOT clamp again here.
 
         result = {
             'input_ids': torch.tensor(input_ids, dtype=torch.long),

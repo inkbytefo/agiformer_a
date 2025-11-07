@@ -109,41 +109,48 @@ class NeuroSymbolicExpert(nn.Module):
         # Eşik üzerindeki potansiyel kenarları bul
         adj_matrix = (attn_matrix > threshold)
 
-        batch_edges = []
-        concepts1_for_classifier = []
-        concepts2_for_classifier = []
+        # --- VECTORIZED EDGE EXTRACTION FOR PERFORMANCE ---
+        # adj_matrix: [batch_size, seq_len, seq_len] -> extract all (b, u, v) with True and u != v
+        edge_indices = adj_matrix.nonzero(as_tuple=False)  # [num_edges_all, 3] with (b, u, v)
+        if edge_indices.numel() == 0:
+            return neural_understanding, {}
 
-        for b in range(batch_size):
-            offset = b * seq_len
-            edges = adj_matrix[b].nonzero(as_tuple=False)
+        b_idx = edge_indices[:, 0]
+        u_idx = edge_indices[:, 1]
+        v_idx = edge_indices[:, 2]
 
-            for edge in edges:
-                u, v = edge[0].item(), edge[1].item()
-                if u != v:
-                    batch_edges.append([u + offset, v + offset])
-                    # Sınıflandırıcı için kavram çiftlerini topla
-                    concepts1_for_classifier.append(neural_understanding[b, u])
-                    concepts2_for_classifier.append(neural_understanding[b, v])
+        # Remove self-loops
+        valid_mask = u_idx != v_idx
+        if valid_mask.sum() == 0:
+            return neural_understanding, {}
 
-        if not batch_edges:
-            return neural_understanding, {}  # Akıl yürütme adımını atla
+        b_idx = b_idx[valid_mask]
+        u_idx = u_idx[valid_mask]
+        v_idx = v_idx[valid_mask]
 
-        # Toplu halde ilişki sınıflandırması yap
-        c1 = torch.stack(concepts1_for_classifier)
-        c2 = torch.stack(concepts2_for_classifier)
-        relation_logits = self.relation_classifier(c1, c2)
+        # Flattened indices for knowledge graph input
+        flat_u = b_idx * seq_len + u_idx
+        flat_v = b_idx * seq_len + v_idx
+
+        # Gather concept pairs for relation classification
+        concepts1_for_classifier = neural_understanding[b_idx, u_idx]  # [num_edges, d_model]
+        concepts2_for_classifier = neural_understanding[b_idx, v_idx]  # [num_edges, d_model]
+
+        # Relation classification
+        relation_logits = self.relation_classifier(concepts1_for_classifier, concepts2_for_classifier)
         predicted_edge_types = torch.argmax(relation_logits, dim=1)
 
-        # Geçerli ilişkileri filtrele (NONE olmayanlar)
-        valid_indices = (predicted_edge_types != RELATION_TYPES["NONE"]).nonzero(as_tuple=True)[0]
+        # Filter out NONE relations
+        valid_rel_mask = predicted_edge_types != RELATION_TYPES["NONE"]
+        if valid_rel_mask.sum() == 0:
+            return neural_understanding, {}
 
-        if valid_indices.numel() == 0:
-            return neural_understanding, {}  # Anlamlı ilişki bulunamadıysa atla
+        flat_u = flat_u[valid_rel_mask]
+        flat_v = flat_v[valid_rel_mask]
+        final_edge_types = predicted_edge_types[valid_rel_mask]
 
-        final_edges = torch.tensor(batch_edges, device=x.device)[valid_indices]
-        final_edge_types = predicted_edge_types[valid_indices]
-
-        edge_index = final_edges.t().contiguous()
+        # Build edge index tensor
+        edge_index = torch.stack([flat_u, flat_v], dim=0).to(x.device)
 
         # Global Bilgi Grafiğini çağır
         concepts_flat = neural_understanding.view(batch_size * seq_len, self.d_model)
