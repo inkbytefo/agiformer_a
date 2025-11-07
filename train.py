@@ -403,7 +403,7 @@ def main(cfg: DictConfig) -> None:
     model = AGIFORMER(
         tokenizer=tokenizer,
         use_gradient_checkpointing=cfg.training.use_gradient_checkpointing,
-        **{k: v for k, v in cfg.model.items() if k not in ['tokenizer_path', 'vocab_size', 'use_gradient_checkpointing']}
+        **{k: v for k, v in cfg.model.items() if k not in ['tokenizer_path', 'vocab_size', 'use_gradient_checkpointing', 'morphological_analysis']}
     ).to(device)
 
     # Log model information
