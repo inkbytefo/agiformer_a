@@ -1,5 +1,5 @@
-# Developer: inkbytefo
-# Modified: 2025-11-06
+## Developer: inkbytefo
+## Modified: 2025-11-08
 
 """
 Text Dataset Classes for AGIFORMER
@@ -210,7 +210,7 @@ class TurkishTextDataset(Dataset):
 
         # Pad to max_seq_len
         if self.tokenizer:
-            pad_id = self.tokenizer.pad_id() if hasattr(self.tokenizer, 'pad_id') else self.tokenizer.unk_id()
+            pad_id = self.tokenizer.pad_id() if hasattr(self.tokenizer, 'pad_id') and self.tokenizer.pad_id() < self.vocab_size else 0
         else:
             pad_id = 0
         pad_morpho_type = 0  # pad type
@@ -386,8 +386,9 @@ class TextDataset(Dataset):
         # Add padding
         pad_len = self.max_seq_len - len(input_ids)
         if pad_len > 0:
-            input_ids += [self.tokenizer.pad_id()] * pad_len
-            target_ids += [self.tokenizer.pad_id()] * pad_len
+            pad_id = self.tokenizer.pad_id() if hasattr(self.tokenizer, 'pad_id') and self.tokenizer.pad_id() < self.tokenizer.vocab_size() else 0
+            input_ids += [pad_id] * pad_len
+            target_ids += [pad_id] * pad_len
         
         # Create attention mask
         attention_mask = (torch.tensor(input_ids, dtype=torch.long) != self.tokenizer.pad_id()).long()
