@@ -14,7 +14,7 @@ device: cuda
 # Use PyTorch CUDA caching allocator with the modern cudaMallocAsync backend.
 # See: https://pytorch.org/docs/stable/memory_management.html#torch.cuda.memory.CUDAPluggableAllocator
 # This resolves the 'Unknown allocator backend' error.
-pytorch_cuda_alloc_conf: "backend:cudaMallocAsync"
+# pytorch_cuda_alloc_conf: "backend:cudaMallocAsync"
 
 # Memory and performance settings
 use_amp: true
