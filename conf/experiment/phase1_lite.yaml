@@ -11,14 +11,14 @@ defaults:
 
 # Override model settings for Phase 1 Lite
 model:
-  d_model: 512
-  n_layers: 6
-  n_heads: 8
-  d_ff: 2048
+  d_model: 384  # T4-optimized
+  n_layers: 4   # Reduced from 6 for memory
+  n_heads: 6    # T4-optimized
+  d_ff: 1536    # T4-optimized
   n_experts: 1
   expert_types: ["language"]
   memory_size: 0
-  max_seq_len: 512
+  max_seq_len: 256  # T4-optimized
   use_linear_attention: false
   use_memory: false
   use_introspection: false
@@ -28,7 +28,7 @@ model:
 
 # Override training settings for Phase 1
 training:
-  batch_size: 32
+  batch_size: 8   # Reduced for T4 memory
   learning_rate: 0.0001
   warmup_steps: 1000
   max_steps: 10000
@@ -36,6 +36,7 @@ training:
   eval_interval: 500
   log_interval: 100
   save_interval: 1000
+  gradient_accumulation_steps: 4  # Increase to compensate for smaller batch size
 
 # Experiment metadata
 experiment_name: phase1_lite

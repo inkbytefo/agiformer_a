@@ -11,7 +11,7 @@ defaults:
 
 # Device settings
 device: cuda
-pytorch_cuda_alloc_conf: "max_split_size_mb:128"
+pytorch_cuda_alloc_conf: "max_split_size_mb:128,expandable_segments:True"
 
 # Memory and performance settings
 use_amp: true
