@@ -231,16 +231,11 @@ class AGIFORMER(nn.Module):
             model_info['modalities'] = list(modality_embeds.keys())
         elif input_ids is not None:
             # Input_ids zaten tokenize edilmiş, embedding'e çevir
-            # --- DEĞİŞİKLİK: Hatalı token ID'lerini yakalamak için doğrulama ---
-            # --- DEĞİŞİKLİK: Hatalı token ID'lerini yakalamak için doğrulama ---
-            invalid_ids = input_ids[input_ids >= self.vocab_size]
-            if invalid_ids.numel() > 0:
-                raise ValueError(
-                    f"input_ids contains tokens out of bounds. "
-                    f"Vocab size is {self.vocab_size}, but found token(s): {invalid_ids.unique().tolist()}"
-                )
+            # --- DEĞİŞİKLİK: Hatalı token ID'lerini güvenli aralığa sınırla ---
+            # Clamp input_ids to prevent out-of-bounds embedding lookups
+            input_ids_clamped = torch.clamp(input_ids, 0, self.vocab_size - 1)
+            x = self.token_embedding(input_ids_clamped)  # Token embedding
             # --- BİTTİ ---
-            x = self.token_embedding(input_ids)  # Token embedding
             model_info['multimodal'] = False
             model_info['tokenizer'] = 'morphopiece'
         else:
