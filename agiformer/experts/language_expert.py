@@ -96,6 +96,7 @@ class LanguageExpert(nn.Module):
             Updated hidden states [batch, seq_len, d_model]
         """
         hidden_states = x
+        morpho_types_clamped = None
 
         # Inject morpho/semantic embeddings if available
         if (
@@ -103,6 +104,7 @@ class LanguageExpert(nn.Module):
             and morpho_types is not None
             and semantic_categories is not None
         ):
+            # Clamp indices to the valid range to prevent out-of-bounds errors
             morpho_types_clamped = torch.clamp(
                 morpho_types, 0, NUM_MORPHEME_TYPES - 1
             )
@@ -113,17 +115,14 @@ class LanguageExpert(nn.Module):
             morpho_emb = self.morpho_embedding(morpho_types_clamped)
             semantic_emb = self.semantic_embedding(semantic_categories_clamped)
 
-            # Shape checks are implicit; mismatches will surface loudly
             hidden_states = hidden_states + morpho_emb + semantic_emb
 
         # Self-attention with potential morphological biasing
         residual = hidden_states
 
         if self.use_agglutinative_attention:
-            # Use clamped morpho_types to prevent any potential indexing issues
-            morpho_types_for_attention = morpho_types_clamped if (
-                self.use_morpho_semantic_embeddings and morpho_types is not None
-            ) else morpho_types
+            # Use clamped morpho_types if they were computed, otherwise pass original
+            morpho_types_for_attention = morpho_types_clamped if morpho_types_clamped is not None else morpho_types
             
             attn_output, _ = self.attention(
                 hidden_states=self.norm1(hidden_states),

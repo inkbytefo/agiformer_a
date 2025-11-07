@@ -1,5 +1,5 @@
 # Developer: inkbytefo
-# Modified: 2025-11-06
+# Modified: 2025-11-07
 
 import torch
 import torch.nn as nn
@@ -110,7 +110,6 @@ class NeuroSymbolicExpert(nn.Module):
         adj_matrix = (attn_matrix > threshold)
 
         # --- VECTORIZED EDGE EXTRACTION FOR PERFORMANCE ---
-        # adj_matrix: [batch_size, seq_len, seq_len] -> extract all (b, u, v) with True and u != v
         edge_indices = adj_matrix.nonzero(as_tuple=False)  # [num_edges_all, 3] with (b, u, v)
         if edge_indices.numel() == 0:
             return neural_understanding, {}
@@ -127,6 +126,11 @@ class NeuroSymbolicExpert(nn.Module):
         b_idx = b_idx[valid_mask]
         u_idx = u_idx[valid_mask]
         v_idx = v_idx[valid_mask]
+
+        # --- START OF FIX ---
+        # Store the edges that will be passed to the classifier for logging
+        edges_for_classification = torch.stack([b_idx, u_idx, v_idx], dim=1)
+        # --- END OF FIX ---
 
         # Flattened indices for knowledge graph input
         flat_u = b_idx * seq_len + u_idx
@@ -170,7 +174,9 @@ class NeuroSymbolicExpert(nn.Module):
         # Sınıflandırıcıdan gelen bilgileri dışarıya aktar
         expert_info = {
             "relation_logits": relation_logits,
-            "classified_edges": torch.stack([b_idx, u_idx, v_idx], dim=1)  # [batch, u, v] formatında kenarlar
+            # --- START OF FIX ---
+            "classified_edges": edges_for_classification  # Use the defined variable
+            # --- END OF FIX ---
         }
 
         return output, expert_info
