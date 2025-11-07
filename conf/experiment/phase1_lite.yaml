@@ -46,7 +46,7 @@ training:
   batch_size: 1
   epochs: 3
   max_steps: 30000
-  gradient_accumulation_steps: 1
+  gradient_accumulation_steps: 8
 
   learning_rate: 0.0003
   warmup_steps: 1000
