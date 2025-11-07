@@ -1,34 +1,18 @@
-# Developer: inkbytefo
-# Modified: 2025-11-06
+// Developer: inkbytefo
+// Modified: 2025-11-07
 
-# @package _global_
-
-# AGIFORMER Main Configuration with Hydra
-# This is the main config file that composes all other configs
+# Root Hydra configuration for AGIFORMER training
+# This file is intentionally minimal; it composes full configuration
+# from structured sub-configs in conf/model, conf/data, conf/training, etc.
 
 defaults:
-  - _self_
-  - experiment: phase1_baseline
   - model: base
+  - data: turkish_corpus_phase1
   - training: base
-  - hardware: default_gpu
-  - logging: base
+  - hardware: auto
+  - logging: default
 
-# Experiment metadata
-experiment_name: agiformer_experiment
-run_name: ${experiment_name}_${now:%Y%m%d_%H%M%S}
+# Run-level metadata (overridable via CLI)
+run_name: agiformer_experiment
 output_dir: outputs/${run_name}
-
-# Global settings
 seed: 42
-debug: false
-
-# Data settings
-data:
-  data_dir: null
-  data_path: null
-  val_data_path: null
-  train_split: 0.9
-  num_workers: 4
-  pin_memory: true
-  persistent_workers: true

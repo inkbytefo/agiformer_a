@@ -1,51 +1,37 @@
-# Developer: inkbytefo
-# Modified: 2025-11-07
+// Developer: inkbytefo
+// Modified: 2025-11-07
 
-# @package _group_
-#
-# AGIFORMER Base Model Configuration (Code-Synced)
-# This file reflects the CURRENT integrated architecture in agiformer/model.py
-# and experts under agiformer/experts/.
+# Base AGIFORMER model configuration
+
+# Tokenizer & vocabulary
+tokenizer_path: /teamspace/studios/this_studio/agiformer_a/tokenizer/morphopiece.model
+vocab_size: 256
 
 # Core architecture
 d_model: 512
 n_layers: 8
 n_heads: 8
 d_ff: 2048
-
-# Vocabulary / tokenizer
-# Note:
-# - AGIFORMER infers vocab_size from MorphoPiece at runtime when possible.
-# - This value is used as a fallback when tokenizer metadata is not available.
-vocab_size: 32000
-tokenizer_path: tokenizer/morphopiece.model
-
-# Mixture of Experts (MoE)
-# expert_types MUST match implemented experts:
-# - "language"        -> LanguageExpert (morpho+semantic aware, AgglutinativeAttention)
-# - "logic"           -> LogicExpert
-# - "spatial"         -> SpatialExpert
-# - "causal"          -> CausalExpert
-# - "neuro_symbolic"  -> NeuroSymbolicExpert (global knowledge graph)
-n_experts: 4
-expert_types: ["language", "logic", "spatial", "neuro_symbolic"]
-
-# Memory and sequence
-memory_size: 2048        # Backed by UnifiedMemoryBackbone
 max_seq_len: 512
-
-# Regularization
 dropout: 0.1
 
-# Feature Flags (aligned with AGIFORMER.__init__)
-use_linear_attention: false         # standard MHA in core blocks
-use_memory: true                    # enable unified memory backbone
-use_introspection: true             # enable introspection in final block(s)
-use_multimodal: false               # set true only when multimodal data is provided
-use_agglutinative_attention: true   # LanguageExpert uses AgglutinativeAttention
-use_gradient_checkpointing: true    # enabled for memory efficiency by default
+# Mixture-of-Experts & experts
+n_experts: 4
+expert_types:
+  - language
+  - logic
+  - spatial
+  - neuro_symbolic
 
-# Language-specific settings
-# Morphological / semantic features are integrated via LanguageExpert.
-# When true and data provides fields, they are consumed end-to-end.
-morphological_analysis: true
+# Memory & introspection
+memory_size: 4096
+use_memory: true
+use_introspection: true
+
+# Attention & multimodality
+use_linear_attention: false
+use_multimodal: false
+use_agglutinative_attention: true
+
+# Training-time features
+use_gradient_checkpointing: false

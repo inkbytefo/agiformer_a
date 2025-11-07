@@ -1,44 +1,33 @@
-# Developer: inkbytefo
-# Modified: 2025-11-06
+// Developer: inkbytefo
+// Modified: 2025-11-07
 
-# @package _group_
+# Base training configuration for AGIFORMER
+# Matches arguments expected by train.main()(train.py:237)
 
-# AGIFORMER Base Training Configuration
-# Default training settings
-
-# Batch and Epochs
-batch_size: 8
-epochs: 10
-max_steps: 10000
-gradient_accumulation_steps: 4
-
-# Learning Rate
-learning_rate: 0.0001
-warmup_steps: 1000
-lr_scheduler: cosine
-
-# Optimizer
+# Optimization
 optimizer: adamw
-adam_beta1: 0.9
-adam_beta2: 0.999
-adam_epsilon: 0.00000001
+learning_rate: 3e-4
 weight_decay: 0.01
+adam_beta1: 0.9
+adam_beta2: 0.98
+adam_epsilon: 1e-8
 
-# Mixed Precision
+# Schedule
+warmup_steps: 4000
+
+# Core loop
+epochs: 10
+batch_size: 8
+max_steps: 0            # 0 or null => no explicit max_steps bound
 use_amp: true
-amp_dtype: float16
+use_gradient_checkpointing: false
 
-# Gradient Control
-gradient_clip: 1.0
-use_gradient_checkpointing: true
-
-# Logging and Checkpointing
-log_interval: 50
-save_interval: 500
-eval_interval: 200
+# Checkpointing
 checkpoint_dir: checkpoints
 keep_last_n_checkpoints: 5
+save_interval: 1000     # global_step interval for saving
+eval_interval: 500      # global_step interval for validation
+log_interval: 50        # global_step interval for logging
 
-# Early Stopping
-early_stopping_patience: 10
-early_stopping_metric: val_loss
+# Regularization / stability
+max_grad_norm: 1.0
