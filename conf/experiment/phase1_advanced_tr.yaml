@@ -1,5 +1,5 @@
-// Developer: inkbytefo
-// Modified: 2025-11-07
+## Developer: inkbytefo
+## Modified: 2025-11-07
 # @package experiment
 
 run_name: "phase1_advanced_tr_morpho_ON_${now:%Y%m%d_%H%M%S}"
