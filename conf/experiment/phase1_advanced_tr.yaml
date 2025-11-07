@@ -3,9 +3,9 @@
 # @package _global_
 
 defaults:
-  - override /base/model: default
-  - override /base/training: default
-  - override /base/data: default
+  - override /model: default
+  - override /training: default
+  - override /data: default
   - override /hardware: t4_gpu # T4 GPU ayarlarını kullan
   - _self_
 

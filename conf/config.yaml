@@ -3,9 +3,9 @@
 # @package _global_
 
 defaults:
-  - base/model: default
-  - base/training: default
-  - base/data: default
+  - model: default
+  - training: default
+  - data: default
   - hardware: default
   - _self_
 
