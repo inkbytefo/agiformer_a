@@ -11,10 +11,10 @@ defaults:
 
 # Device settings
 device: cuda
-# Use a conservative, parser-safe allocator config compatible with recent PyTorch.
+# Use PyTorch CUDA caching allocator with expandable segments backend (correct key:value syntax).
 # See: https://pytorch.org/docs/stable/memory_management.html#environment-variables
-# This avoids the malformed "...,expandable_segments:True" format that can crash CachingAllocator.
-pytorch_cuda_alloc_conf: "max_split_size_mb:128"
+# This fixes the previous malformed value that caused CUDA init failure and CPU fallback.
+pytorch_cuda_alloc_conf: "backend:expandable_segments"
 
 # Memory and performance settings
 use_amp: true
