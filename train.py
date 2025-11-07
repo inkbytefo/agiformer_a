@@ -315,7 +315,7 @@ def main(cfg: DictConfig) -> None:
         shuffle=True,
         num_workers=cfg.data.num_workers,
         pin_memory=cfg.data.pin_memory,
-        persistent_workers=cfg.data.persistent_workers
+        persistent_workers=False
     )
 
     val_loader = torch.utils.data.DataLoader(
@@ -324,7 +324,7 @@ def main(cfg: DictConfig) -> None:
         shuffle=False,
         num_workers=cfg.data.num_workers,
         pin_memory=cfg.data.pin_memory,
-        persistent_workers=cfg.data.persistent_workers
+        persistent_workers=False
     )
 
     logger.info(f"Dataset: {len(train_ds)} train samples, {len(val_ds)} val samples")
@@ -364,14 +364,10 @@ def main(cfg: DictConfig) -> None:
     global_step = 0
 
     try:
+        scaler = torch.cuda.amp.GradScaler(enabled=cfg.training.use_amp)
         for epoch in range(cfg.training.epochs):
             logger.info(f"\nEpoch {epoch + 1}/{cfg.training.epochs}")
             model.train()
-            
-            try:
-                scaler = torch.amp.GradScaler(enabled=cfg.training.use_amp)
-            except AttributeError:
-                scaler = torch.cuda.amp.GradScaler(enabled=cfg.training.use_amp)
 
             for batch_idx, batch in enumerate(train_loader):
                 global_step += 1
